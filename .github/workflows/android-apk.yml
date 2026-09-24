@@ -109,7 +109,7 @@ jobs:
           fi
           ./gradlew "${args[@]}"
 
-      - name: Verify offline release (no INTERNET permission)
+      - name: Verify release permissions (offline, nothing blocked)
         if: env.VARIANT == 'release'
         run: |
           apk="android/app/build/outputs/apk/release/app-release.apk"
@@ -118,6 +118,10 @@ jobs:
           echo "$perms"
           if echo "$perms" | grep -qE 'android\.permission\.(INTERNET|ACCESS_NETWORK_STATE)'; then
             echo "::error::Release APK requests INTERNET or ACCESS_NETWORK_STATE - the app must be 100% offline at runtime (see plugins/withReleaseOffline.js)."
+            exit 1
+          fi
+          if echo "$perms" | grep -qE 'android\.permission\.(RECORD_AUDIO|READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|READ_MEDIA_IMAGES|DETECT_SCREEN_CAPTURE|SYSTEM_ALERT_WINDOW)'; then
+            echo "::error::Release APK requests a permission blocked in app.config.ts (android.blockedPermissions)."
             exit 1
           fi
 

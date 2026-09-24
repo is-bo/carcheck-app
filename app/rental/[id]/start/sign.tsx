@@ -27,6 +27,7 @@ import {
   SkeletonRows,
   Text,
   TopBar,
+  useNoScreenshots,
 } from '@/ui';
 import { layout, lines, palette, radii } from '@/ui/theme/tokens';
 
@@ -38,6 +39,7 @@ type Stage = 'review' | 'pad' | 'thanks' | 'done';
  * leaves the flow. Confirm signature is the finalize action (no extra dialog).
  */
 export default function SignStep() {
+  useNoScreenshots('sign');
   const { id } = useLocalSearchParams<{ id: string }>();
   useResumePoint(id, 'sign');
   const [stage, setStage] = useState<Stage>('review');

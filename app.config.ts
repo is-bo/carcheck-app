@@ -43,6 +43,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'android.permission.READ_EXTERNAL_STORAGE',
       'android.permission.WRITE_EXTERNAL_STORAGE',
       'android.permission.SYSTEM_ALERT_WINDOW',
+      // expo-screen-capture declares these for screenshot *detection*; CarCheck only blocks
+      // screenshots (FLAG_SECURE), which needs no permission.
+      'android.permission.READ_MEDIA_IMAGES',
+      'android.permission.DETECT_SCREEN_CAPTURE',
     ],
     adaptiveIcon: {
       backgroundColor: '#E6F4FE',

@@ -37,6 +37,7 @@ import {
   TextField,
   Touchable,
   type LucideIcon,
+  useNoScreenshots,
 } from '@/ui';
 import { layout, light, palette, radii } from '@/ui/theme/tokens';
 
@@ -54,6 +55,7 @@ const AUTOSAVE_MS = 600;
 
 /** Step 2 (UX §2.2): only the name is required; picking a profile fills everything and moves on. */
 export default function CustomerStep() {
+  useNoScreenshots('start-customer');
   const { id } = useLocalSearchParams<{ id: string }>();
   const rental = useLiveQuery(() => getRental(id), [id], []);
   const [loaded, setLoaded] = useState(false);

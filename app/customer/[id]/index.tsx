@@ -31,6 +31,7 @@ import {
   SkeletonRows,
   Text,
   showToast,
+  useNoScreenshots,
 } from '@/ui';
 import { layout } from '@/ui/theme/tokens';
 
@@ -38,6 +39,7 @@ const WATCH: readonly DataEntity[] = ['customer', 'rental'];
 const KIND_LABEL = { licence: 'Licence', id_passport: 'ID / Passport', other: 'Other doc' } as const;
 
 export default function CustomerDetailScreen() {
+  useNoScreenshots('customer-detail');
   const { id } = useLocalSearchParams<{ id: string }>();
   const query = useLiveQuery(() => getCustomerDetail(id), WATCH);
   const detail = query.data;

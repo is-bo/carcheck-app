@@ -12,7 +12,7 @@ One line per finding in the four reviews (the review files themselves are unchan
 - **L2** details loses the last edit → fixed. Pending autosave flushes on unmount.
 - **L3** Home promise chains → fixed. Rejections handled (agency check, search, history).
 - **L4** stacking screens → fixed. A retake goes back to Compare; capture finishes with `dismissTo(compare)`; Edit return from the report replaces it.
-- **L5** SDK patch mismatches → skipped here: run `npx expo install --fix` before the release build (changes package.json/lockfile; do it on its own commit and let CI build it).
+- **L5** SDK patch mismatches → fixed. `npx expo install --fix` on its own commit (expo 57.0.25 and five module patches); expo-doctor 21/21.
 
 ## architecture-data.md
 
@@ -27,7 +27,7 @@ One line per finding in the four reviews (the review files themselves are unchan
 - **L2** hash does not cover photos; verify never called → partly. Check contract re-hashes the photos the contract shows (frozen rows hold the reference hash) and is reachable from the viewer. The preimage itself was not versioned to v2.
 - **L3** boot fallbacks delete other roots → fixed. A guessed root keeps the runner-up as `previous` for 14 days and nothing is deleted that boot.
 - **L4** boot outcome invisible; restore log lost on crash → fixed. Boot notes shown after launch; the log row is written into the staged DB before the switch.
-- **L5** restore accepts backups listing missing/damaged files → partly. The contradictory "complete and undamaged" copy is fixed and the banner says the files stay missing. Restore is still allowed: DECISIONS Data §2 says "blocked", but the create screen promises such backups are kept, and blocking would make them unrestorable — **owner decision needed**.
+- **L5** restore accepts backups listing missing/damaged files → fixed by owner decision (DECISIONS Data §2 updated): files already missing/damaged on the source phone → allowed with a warning that gives their count; a corrupt file or one absent from the archive → blocked (unchanged `corrupted` / `incomplete` errors). The contradictory "complete and undamaged" copy is fixed.
 - **L6** close-up phase unchecked → fixed. Repo + migration 2 trigger.
 - **L7** four `useLiveQuery` hooks, entities one can go stale → partly. The entities hook ignores superseded results; the hooks were not merged.
 - **L8** layering drifted from ARCHITECTURE §4 → fixed in docs (§4 rewritten, empty `src/export` removed). Not lint-enforced.
@@ -78,5 +78,5 @@ One line per finding in the four reviews (the review files themselves are unchan
 - **L1** FileProvider scope → skipped (optional hardening; every share already stages a copy under `cache/`).
 - **L2** untrusted SQLite parsing → no change (inherent; keep expo-sqlite current).
 - **L3** iOS zip-slip unverified → deferred to the iOS phase (test with a `../` entry).
-- **L4** no screenshot protection → skipped: needs `expo-screen-capture`, a new dependency that needs the owner's approval.
+- **L4** no screenshot protection → fixed (owner approved `expo-screen-capture`). `useNoScreenshots` sets FLAG_SECURE only while the sign/hand-off screen or a screen showing customer ID photos (start-flow customer step, customer detail, new, edit) is focused; employee screens stay screenshotable. The module's detection permissions (READ_MEDIA_IMAGES, DETECT_SCREEN_CAPTURE) are blocked and CI fails if a blocked permission reaches the release APK.
 - **L5** camera temp files not cleaned → fixed. Housekeeping sweeps `Camera/`, `ImagePicker/`, `ImageManipulator/` after 1 h.
