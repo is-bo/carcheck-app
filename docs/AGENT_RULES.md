@@ -16,3 +16,10 @@
 - Every screen: loading, empty, error states; ≥48dp targets; safe areas; keyboard handling on forms; Android back behaviour sane (flows autosave, no data loss); copy from UX_FLOWS.md.
 - Before writing UI read Impeccable: the Impeccable skill's reference/craft-floor.md. Match DESIGN.md and docs/design/screens/*.html mockups. No AI-slop.
 - Shared feature services live in src/features/<area>/ owned by the agent named in its task.
+
+## Wave C (fixes) — conventions
+- Findings live in docs/reviews/{architecture-data,functional,ux,security-ios}.md. Fix every finding (all severities where the fix is proportionate) whose code lies in YOUR owned paths. Fix root causes, don't layer hacks. Keep the "keep — this is good" items in ux.md intact.
+- A finding that needs a change outside your paths: don't touch it; list it in your report.
+- Write your report to docs/reviews/fixes-<your-area>.md: one line per finding ID → fixed / partly / skipped (why). Do not edit the review files themselves.
+- Never write local machine paths, usernames or emails into committed files (the repo is public).
+- Finish with: whole-project `npx tsc --noEmit`, `npx eslint <your paths>`, and your related jest tests all passing.

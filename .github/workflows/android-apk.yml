@@ -109,6 +109,18 @@ jobs:
           fi
           ./gradlew "${args[@]}"
 
+      - name: Verify offline release (no INTERNET permission)
+        if: env.VARIANT == 'release'
+        run: |
+          apk="android/app/build/outputs/apk/release/app-release.apk"
+          buildtools=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)
+          perms=$("${buildtools}aapt2" dump permissions "$apk")
+          echo "$perms"
+          if echo "$perms" | grep -qE 'android\.permission\.(INTERNET|ACCESS_NETWORK_STATE)'; then
+            echo "::error::Release APK requests INTERNET or ACCESS_NETWORK_STATE - the app must be 100% offline at runtime (see plugins/withReleaseOffline.js)."
+            exit 1
+          fi
+
       - name: Verify signature and name artifact
         id: apk
         env:

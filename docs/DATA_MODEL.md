@@ -41,7 +41,7 @@ app_pref (UI prefs k/v)   backup_log   v_file_ref (view of every stored file)
   - `marker_json` is geometry.ts `DamageMarker {v:1, ring, counterpart?}`. `ring` sits on the photo of `found_phase` (BEFORE for pick-up marks, AFTER for return marks). `counterpart` is an optional employee override of the ring on the paired photo; if absent, `deriveCounterpart()` + the pair's alignment compute it.
   - Pick-up marks are always `pre_existing`, with a BEFORE photo and no AFTER photo. Return marks always have an AFTER photo; `before_photo_id` is the paired BEFORE shot if one exists. "Was there" = a return mark with status `pre_existing`.
   - A trigger checks that every photo reference belongs to the same rental, pair key and phase, and that the vehicle matches.
-  - **Numbering**: unique per (rental, status) through the whole rental ("Existing 1…n", "New 1…n", "Uncertain 1…n"), as in UX §4. The repo assigns `max+1`, renumbers when the status changes, and compacts only rows that are still editable.
+  - **Numbering**: `number` is unique per `(rental_id, status = 'pre_existing')` (`ux_damage_number`) — pre-existing damage has its own 1…n sequence (shown as letters A, B, C…); new and uncertain share one sequence (shown as numbers 1, 2, 3…) so flipping between them never renumbers, per DECISIONS.md. The repo assigns `max+1` within the row's group and compacts only rows that are still editable.
 - **vehicle_damage** = the identity of one physical damage across rentals. It powers **Known damage** and the pick-up carry-over.
   - Every damage row points to one. A new mark creates one; "Still there" inserts a new observation (new BEFORE photo, nudged ring, copied type/note) under the same identity. "Repaired / gone" or vehicle-detail "Mark repaired" sets `resolved_at` + `resolution` (+ `resolved_rental_id`).
   - Open known damage = unresolved identities of the vehicle, shown with their latest observation. An identity is deleted automatically when its last observation is deleted.
@@ -99,7 +99,7 @@ app_pref (UI prefs k/v)   backup_log   v_file_ref (view of every stored file)
     files/                FILES ROOT — every DB path is relative to this
       photos/<rentalId>/<photoId>.jpg           signatures/<rentalId>/<contractId>.png
       docs/<customerId>/<docId>.jpg             docs/r-<rentalId>/<docId>.jpg  (inline customer)
-      generated/<rentalId>/<artifactId>.jpg|pdf vehicles/<vehicleId>/<fileId>.jpg   agency/logo-<fileId>.png
+      generated/<rentalId>/<artifactId>.jpg|pdf vehicles/<vehicleId>/<fileId>.jpg   agency/logo-<fileId>.png|jpg
   data-<other>/           previous root (safety copy after a restore) or restore staging
 <Paths.cache>/
   thumbs/<photoId>.jpg    derived; regenerated if missing; never backed up

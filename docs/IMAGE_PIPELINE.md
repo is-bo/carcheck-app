@@ -63,16 +63,16 @@ interface DamageMarker { v: 1; ring: Ring; counterpart?: Ring }
 - `ring` lives on the photo the damage was marked on: AFTER for new or uncertain, BEFORE for existing. For "Was there" found at return, `ring` is on AFTER and the status is `existing`.
 - **Counterpart ring** (the "same area" on the paired photo) = `deriveCounterpart(ring, dir, beforeSize, afterSize, alignment?)`. It is the same physical spot through the pair mapping (it handles different resolutions and portrait/landscape mismatches), padded ×1.15 so it frames the spot rather than covering it. It is derived live in compare, as the UX asks for ("matching dashed ring appears live on BEFORE"). **Employee override:** dragging the dashed ring stores `counterpart`; "Reset" deletes it. Only an override is persisted, so fixing the mapping later improves every non-overridden ring.
 - **Pin position.** The pin is never drawn at the ring's centre, where it would hide the damage. `placeBadge()` puts it outside the ring on a diagonal: upper-right first, flipping near edges, always inside the photo. The editor uses the same function, so screen and export agree. Drag the pin = move; drag the ring edge = resize; `hitTestMarkers()` returns `pin | edge | inside` with the UX's 48 dp tolerance.
-- **Status by shape (screen and export):**
+- **Status by shape (screen and export)** — badge shape encodes status, never colour alone (DECISIONS.md, prints in B/W):
 
-| Status | Ring on its own photo | Pin | Counterpart on the paired photo |
-|---|---|---|---|
-| New | solid, red | filled, white number | dashed ring, hollow pin |
-| Uncertain | **dashed**, amber | filled + small "?" disc | dashed ring, hollow pin + "?" |
-| Existing | solid, slate | **hollow** (white fill, slate number) | dashed ring, hollow pin |
+| Status | Badge shape | Ring on its own photo | Pin | Counterpart on the paired photo |
+|---|---|---|---|---|
+| New | circle | solid, red | filled, white number | dashed ring, hollow pin |
+| Uncertain | diamond | **dashed**, amber | filled + small "?" disc | dashed ring, hollow pin + "?" |
+| Existing | square | solid, slate | **hollow** (white fill, slate letter) | dashed ring, hollow pin |
 
-Every ring is stroked three times: a dark 45% edge, a white halo, then the colour. This keeps it legible on white, silver, red and black paint and in black-and-white print. The same pin shapes repeat in the footer captions.
-- **Numbering (data-model request):** new and uncertain share one return sequence across the rental, so flipping status never renumbers. Existing has its own sequence. Captions add the status word ("New 2", "Uncertain 3", "Existing 1"), so equal numbers stay unambiguous.
+Every ring is stroked three times: a dark 45% edge, a white halo, then the colour. This keeps it legible on white, silver, red and black paint and in black-and-white print. The same pin shapes repeat in the footer captions. Dashed is reserved for the counterpart ring/pin only — it never appears on the primary photo the damage was marked on.
+- **Numbering (DECISIONS.md):** existing damage is labelled with LETTERS (A, B, C… per rental); new and uncertain share one NUMBER sequence across the rental, so flipping status never renumbers. Captions add the status word ("New 2", "Uncertain 3", "Existing A"), so equal labels stay unambiguous.
 
 ## 4. Comparison rendering
 

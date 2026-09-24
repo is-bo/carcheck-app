@@ -24,6 +24,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       // "Save image" in the share sheet writes to Photos; iOS terminates the app without this key.
       NSPhotoLibraryAddUsageDescription:
         'CarCheck saves evidence images to your photo library only when you choose "Save Image" in the share sheet.',
+      // Defensive: the system photo picker (PHPicker) used for ID/vehicle/logo import normally needs
+      // no permission, but iOS terminates the app if it ever does touch PHPhotoLibrary and this key
+      // is missing. Harmless to ship even if never triggered (see docs/reviews/security-ios.md M3).
+      NSPhotoLibraryUsageDescription:
+        'CarCheck reads a photo only when you choose one for a customer ID, vehicle photo or agency logo.',
       ITSAppUsesNonExemptEncryption: false,
     },
   },

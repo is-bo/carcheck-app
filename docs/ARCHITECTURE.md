@@ -46,7 +46,6 @@ All Expo-managed versions come from `npx expo install` (the `bundledNativeModule
 - **react-native-view-shot for evidence images**: the output depends on screen density and on-screen layout. Skia offscreen renders deterministically at a fixed pixel size.
 - **pdf-lib / native PDF builders**: HTML/CSS through expo-print is far cheaper for a text-heavy report. Revisit only if exact pagination control becomes necessary.
 - **expo-document-picker**: expo-file-system 57 already provides file and directory pickers.
-- **expo-image-picker**: no gallery import is needed yet (the logo can come from the file picker), and it avoids media permissions.
 - **zustand / redux / react-query**: not needed (section 5).
 - **Flutter / native Kotlin**: would lose the single TypeScript codebase for Android and iOS.
 
