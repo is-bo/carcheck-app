@@ -31,7 +31,7 @@ Read order for implementers: BRIEF.md → DECISIONS.md → ARCHITECTURE.md → D
 
 ## Data decisions (answers to DATA_MODEL §10)
 1. Retake of a photo that has markers (only possible before it is locked): new photo replaces it, markers carry over (normalized coords) and the UI asks the employee to check them; the unlocked old file is deleted.
-2. Restore with any corrupt/missing file: blocked, the error lists what is damaged. No partial restore in MVP.
+2. Restore is **blocked** when a file in the backup is corrupt (size or SHA-256 differs from the manifest, including the database) or when a file the manifest lists is absent from the archive; the error lists what is damaged or missing. Restore is **allowed, with a clear warning**, when the backup records files that were already missing or damaged on the phone that made it (`missingFiles` / `damagedFiles` in the manifest): the warning says how many files there are and that they stay missing after the restore. No partial restore in MVP. (Owner decision, Wave C.)
 3. Share temp files: deferred cleanup (on next app start, files older than 24h). OK.
 4. Rental reference prefix: configurable in Settings (default "R"), so two phones can use different prefixes.
 5. Backups > 4 GB: rely on zip64 support of react-native-zip-archive; QA must confirm; warn the user when a backup exceeds ~3.5 GB.

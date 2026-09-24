@@ -108,6 +108,14 @@ describe('createBackup', () => {
     await expect(prepare(result.uri)).resolves.toMatchObject({ backup: { damagedFiles: [ref.path] } });
   });
 
+  it('records a file already missing on this phone and still allows the restore (DECISIONS Data §2)', async () => {
+    const [ref] = await listFileRefs();
+    nodeFs().rmSync(`${h.location(INITIAL_ROOT).filesDir}/${ref.path}`);
+    const result = await backup();
+    expect(result.missingFiles).toEqual([ref.path]);
+    await expect(prepare(result.uri)).resolves.toMatchObject({ backup: { missingFiles: [ref.path] } });
+  });
+
   it('checks free space before writing anything', async () => {
     h.free.bytes = 10;
     const error = await expectBackupError(backup(), 'no_space');
