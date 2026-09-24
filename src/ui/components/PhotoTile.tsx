@@ -7,7 +7,7 @@ import type { DamageStatus } from '@/domain/types';
 
 import { plural } from '../format';
 import { useSurface } from '../surface';
-import { markerGeometry, palette, radii } from '../theme/tokens';
+import { markerGeometry, overlay, palette, radii } from '../theme/tokens';
 import { Icon } from './Icon';
 import { MarkerBadge, markerName } from './MarkerBadge';
 import { Text } from './Text';
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: radii.plate,
     paddingHorizontal: 4,
-    backgroundColor: 'rgba(12,13,14,0.78)',
+    backgroundColor: overlay.tagBackground,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -141,6 +141,8 @@ export const rebate: ColorRoles = {
 /** Labels and tags laid over photos (BEFORE / AFTER, capture title). */
 export const overlay = {
   tagBackground: 'rgba(12,13,14,0.78)',
+  /** Light veil over a hidden (blurred) sensitive photo, under its lock glyph. */
+  photoScrim: 'rgba(12,13,14,0.35)',
   tagText: palette.onRebate,
   tagTextSecondary: palette.onRebate2,
   guideStroke: palette.white,

@@ -85,7 +85,15 @@ export default function OnboardingScreen() {
 
         <LogoPicker uri={logoPath ? resolveFileUri(logoPath) : null} onPick={addLogo} busy={logoBusy} />
 
-        <TextField label="Phone" optional variant="numeric" placeholder="+351 …" value={phone} onChangeText={setPhone} />
+        <TextField
+          label="Phone"
+          optional
+          keyboardType="phone-pad"
+          autoComplete="tel"
+          placeholder="+351 …"
+          value={phone}
+          onChangeText={setPhone}
+        />
         <TextField
           label="Address"
           optional

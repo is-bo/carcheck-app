@@ -1,4 +1,4 @@
-import { fuelSegment, parseMileage, presetOf, returnAtPreset, shiftDays, shiftTime } from '../detailsForm';
+import { atHour, fuelSegment, parseMileage, presetOf, returnAtPreset, shiftDays, shiftTime } from '../detailsForm';
 
 describe('detailsForm', () => {
   const now = new Date(2026, 8, 24, 10, 37, 22).getTime();
@@ -35,5 +35,12 @@ describe('detailsForm', () => {
     expect(parseMileage('48 213')).toBe(48213);
     expect(parseMileage('48,213')).toBe(48213);
     expect(parseMileage('12a')).toBe('invalid');
+  });
+});
+
+describe('atHour', () => {
+  it('keeps the day and sets the time on the hour', () => {
+    const at = new Date(2026, 8, 24, 16, 37, 12).getTime();
+    expect(new Date(atHour(at, 9))).toEqual(new Date(2026, 8, 24, 9, 0, 0, 0));
   });
 });

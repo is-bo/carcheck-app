@@ -225,6 +225,16 @@ function CompareBody({ rental, sequence, damages, initialMode, requested, onLeav
   const changeMode = useCallback((m: CompareMode) => {
     setMode(m);
     setPref('compareMode', m).catch(() => undefined);
+    // The hold-to-see-BEFORE gesture is invisible: say it once, the first time Overlay opens.
+    if (m === 'overlay') {
+      getPref<boolean>('overlayHoldHintShown')
+        .then((shown) => {
+          if (shown) return;
+          showToast('Hold the photo to see BEFORE');
+          return setPref('overlayHoldHintShown', true);
+        })
+        .catch(() => undefined);
+    }
   }, []);
 
   const toggleExisting = useCallback(() => {

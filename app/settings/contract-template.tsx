@@ -39,7 +39,7 @@ import {
   useKeyboardVisible,
   useSurface,
 } from '@/ui';
-import { fontFamily, fontScaleCap, layout, lines, space } from '@/ui/theme/tokens';
+import { fontFamily, fontScaleCap, layout, lines, space, type } from '@/ui/theme/tokens';
 
 type Selection = { start: number; end: number };
 type LoadState = { status: 'loading' } | { status: 'ready' } | { status: 'error' };
@@ -364,8 +364,7 @@ const styles = StyleSheet.create({
   editToolbar: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 8 },
   editor: {
     flex: 1,
-    fontFamily: fontFamily.regular,
-    fontSize: 16,
+    ...type.body,
     lineHeight: 24,
     paddingHorizontal: layout.screenGutter,
     paddingTop: space[2],

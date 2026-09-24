@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { router, useFocusEffect, type Href } from 'expo-router';
 import Constants from 'expo-constants';
 
@@ -7,7 +7,7 @@ import { isStarterTemplate } from '@/domain/contract';
 import { formatRentalReference } from '@/domain/types';
 import { getActiveTemplate, getAgencySettings, getLastBackupAt, getStorageUsage } from '@/data/repos';
 import { useLiveQuery } from '@/features/settings';
-import { formatDate, formatFileSize, ListRow, ListSection, Screen, SkeletonRows, Text } from '@/ui';
+import { Button, formatDate, formatFileSize, ListRow, ListSection, Screen, SkeletonRows, Text } from '@/ui';
 import { layout } from '@/ui/theme/tokens';
 
 // Typed routes regenerate from the files under app/ (expo start / CI prebuild); cast until then,
@@ -43,13 +43,10 @@ export default function SettingsScreen() {
           <ListSection title="Agency" flush>
             <ListRow
               title="Agency details"
-              subtitle={data.agency.name || 'Add your agency name'}
-              chevron
-              onPress={() => router.push(AGENCY)}
-            />
-            <ListRow
-              title="Rental reference"
-              subtitle={`Prefix ${data.agency.rentalRefPrefix} · Next ${formatRentalReference(data.agency.rentalRefPrefix, data.agency.rentalRefLastSeq + 1)}`}
+              subtitle={[
+                data.agency.name || 'Add your agency name',
+                `Next ${formatRentalReference(data.agency.rentalRefPrefix, data.agency.rentalRefLastSeq + 1)}`,
+              ].join(' · ')}
               chevron
               onPress={() => router.push(AGENCY)}
             />
@@ -88,21 +85,24 @@ export default function SettingsScreen() {
           <ListSection title="About">
             <ListRow
               title="About CarCheck"
-              subtitle={`Version ${Constants.expoConfig?.version ?? '—'} · Offline`}
+              subtitle={`Version ${Constants.expoConfig?.version ?? '—'}`}
               chevron
               onPress={() => router.push(ABOUT)}
             />
           </ListSection>
         </>
       ) : (
-        <Text variant="body" tone="secondary" style={styles.error}>
-          Couldn’t load settings. Reopen this screen to try again.
-        </Text>
+        <View style={styles.error}>
+          <Text variant="body" tone="secondary">
+            Couldn’t load settings. Your data is safe on this phone.
+          </Text>
+          <Button label="Try again" variant="secondary" onPress={reload} />
+        </View>
       )}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  error: { paddingHorizontal: layout.screenGutter, paddingTop: 24 },
+  error: { paddingHorizontal: layout.screenGutter, paddingTop: 24, gap: 16, alignItems: 'flex-start' },
 });

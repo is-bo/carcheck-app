@@ -45,9 +45,9 @@ const styles = StyleSheet.create({
   left: { left: space[3] },
   right: { right: space[3] },
   label: {
+    ...typeTokens.labelSmall,
+    // Bold on photos: the BEFORE / AFTER tag must survive any background.
     fontFamily: fontFamily.bold,
-    fontSize: 14,
-    lineHeight: 18,
     letterSpacing: 0.8,
     color: overlay.tagText,
   },

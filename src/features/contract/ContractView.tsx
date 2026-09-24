@@ -5,17 +5,18 @@
  * the signature itself once it exists.
  */
 import { Image } from 'expo-image';
-import { Fragment, useMemo } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { photoPath } from '@/data/files';
-import type { ContractDamageItem } from '@/domain/contract';
+import { damageItemText, type ContractDamageItem } from '@/domain/contract';
 import type { Id } from '@/domain/types';
 import { contractHtmlToBlocks, type ContractBlock, type ContractImageSource, type TextSpan } from '@/documents';
-import { Text, type TextVariant } from '@/ui';
+import { Text, Touchable, type TextVariant } from '@/ui';
 import { layout, lines, markerGeometry, palette, radii } from '@/ui/theme/tokens';
 
 import { MarkedPhoto } from '../damage/MarkedPhoto';
+import { PhotoZoom, type PhotoZoomTarget } from './PhotoZoom';
 
 export type ContractAudience = 'employee' | 'customer';
 
@@ -35,7 +36,8 @@ export interface ContractViewProps {
 const VARIANTS: Record<ContractAudience, { h1: TextVariant; h2: TextVariant; h3: TextVariant; body: TextVariant; bodyStrong: TextVariant }> = {
   employee: { h1: 'titleL', h2: 'titleM', h3: 'titleS', body: 'body', bodyStrong: 'bodyStrong' },
   customer: {
-    h1: 'customer.headline',
+    // The screen already has the one headline ("Please review your rental").
+    h1: 'customer.section',
     h2: 'customer.section',
     h3: 'customer.bodyStrong',
     body: 'customer.body',
@@ -64,6 +66,7 @@ export function ContractView({ html, rentalId, damage, audience, signatureUri }:
   const v = VARIANTS[audience];
   const customer = audience === 'customer';
   const badge = customer ? markerGeometry.badgeSizeCustomer : markerGeometry.badgeSize;
+  const [zoom, setZoom] = useState<PhotoZoomTarget | null>(null);
 
   const photoBlock = (source: Extract<ContractImageSource, { kind: 'photo' }>, key: string, alt?: string) => {
     const { photoId, annotated } = source;
@@ -78,16 +81,38 @@ export function ContractView({ html, rentalId, damage, audience, signatureUri }:
     const size =
       source.size ?? (items[0] ? { width: items[0].photoWidth, height: items[0].photoHeight } : { width: 4, height: 3 });
     const labels = marks.map((m) => m.label);
-    return (
+    const name = items[0]?.angleLabel ?? (alt || 'Photo');
+    const photo = (
       <MarkedPhoto
         key={key}
         photo={{ id: photoId, rentalId, file: { path: photoPath(rentalId, photoId) } }}
         size={size}
         marks={marks}
         badgeSize={badge}
-        accessibilityLabel={`${items[0]?.angleLabel ?? (alt || 'Photo')}${labels.length ? `, marks ${labels.join(', ')}` : ''}`}
+        accessibilityLabel={`${name}${labels.length ? `, marks ${labels.join(', ')}` : ''}`}
         style={styles.photo}
       />
+    );
+    if (!customer) return photo;
+    // The customer is agreeing to these marks: let them look closely.
+    return (
+      <Touchable
+        key={key}
+        onPress={() =>
+          setZoom({
+            photoId,
+            size,
+            marks: marks.map((m) => ({ label: m.label, ring: m.ring })),
+            title: name,
+            captions: items.map((d) => `Existing ${damageItemText(d)}`),
+          })
+        }
+        accessibilityRole="imagebutton"
+        accessibilityLabel={`${name}${labels.length ? `, marks ${labels.join(', ')}` : ''}`}
+        accessibilityHint="Opens the photo larger"
+      >
+        {photo}
+      </Touchable>
     );
   };
 
@@ -149,7 +174,12 @@ export function ContractView({ html, rentalId, damage, audience, signatureUri }:
     }
   };
 
-  return <View style={customer ? styles.customer : styles.employee}>{blocks.map(render)}</View>;
+  return (
+    <View style={customer ? styles.customer : styles.employee}>
+      {blocks.map(render)}
+      {customer ? <PhotoZoom rentalId={rentalId} target={zoom} onClose={() => setZoom(null)} /> : null}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({

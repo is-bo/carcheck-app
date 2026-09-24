@@ -102,7 +102,9 @@ export function vehicleStatusLine(item: VehicleListItem, locale?: string): strin
 /** "Renault · Clio · 2019" from whichever fields are set. */
 export function vehicleMakeModelYear(item: VehicleListItem): string {
   const { make, model, year } = item.vehicle;
-  return [make, model, year ? String(year) : null].filter(Boolean).join(' · ') || 'No make or model yet';
+  // "Renault Clio · 2019": make and model read as one name.
+  const name = [make, model].filter(Boolean).join(' ');
+  return [name, year ? String(year) : null].filter(Boolean).join(' · ') || 'No make or model yet';
 }
 
 export function vehicleMileageLine(mileage: number | null, unit: 'km' | 'mi'): string | null {

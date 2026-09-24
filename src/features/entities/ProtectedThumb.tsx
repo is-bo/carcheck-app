@@ -9,7 +9,7 @@ import { Image } from 'expo-image';
 import { Lock, Trash2 } from 'lucide-react-native';
 
 import { IconButton, Touchable } from '@/ui';
-import { palette, radii } from '@/ui/theme/tokens';
+import { overlay, palette, radii } from '@/ui/theme/tokens';
 
 export interface ProtectedThumbProps {
   uri: string;
@@ -43,6 +43,6 @@ const styles = StyleSheet.create({
   wrap: { width: 96 },
   touchable: { width: 96, height: 72, borderRadius: radii.photo, overflow: 'hidden', backgroundColor: palette.paper2 },
   image: { width: '100%', height: '100%' },
-  lock: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(12,13,14,0.35)' },
+  lock: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', backgroundColor: overlay.photoScrim },
   delete: { alignSelf: 'flex-end', marginTop: -4 },
 });

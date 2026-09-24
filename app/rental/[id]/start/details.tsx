@@ -12,7 +12,9 @@ import {
   fuelSegment,
   parseMileage,
   presetOf,
+  atHour,
   RETURN_PRESETS,
+  RETURN_TIMES,
   returnAtPreset,
   shiftDays,
   shiftTime,
@@ -284,14 +286,23 @@ function ReturnPicker({ open, initial, onClose, onSet }: { open: boolean; initia
     <BottomSheet
       open={open}
       onClose={onClose}
-      snapPoints={[360]}
+      snapPoints={[480]}
       accessibilityLabel="Pick the return date"
       header={<Text variant="titleL">Expected return</Text>}
       footer={<Button label="Set return date" onPress={() => onSet(at)} fullWidth />}
     >
       <View style={styles.picker}>
         {stepper('Day', formatDateLong(at), () => setAt((a) => shiftDays(a, -1)), () => setAt((a) => shiftDays(a, 1)), 'day')}
+        <View style={styles.chips}>
+          <Chip label="−1 week" selected={false} onPress={() => setAt((a) => shiftDays(a, -7))} />
+          <Chip label="+1 week" selected={false} onPress={() => setAt((a) => shiftDays(a, 7))} />
+        </View>
         {stepper('Time', formatTime(at), () => setAt((a) => shiftTime(a, -1)), () => setAt((a) => shiftTime(a, 1)), 'time')}
+        <View style={styles.chips}>
+          {RETURN_TIMES.map((t) => (
+            <Chip key={t.label} label={t.label} selected={formatTime(at) === formatTime(atHour(at, t.hour))} onPress={() => setAt((a) => atHour(a, t.hour))} />
+          ))}
+        </View>
       </View>
     </BottomSheet>
   );

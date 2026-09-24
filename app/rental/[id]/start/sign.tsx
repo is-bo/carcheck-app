@@ -2,11 +2,11 @@ import { Image } from 'expo-image';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Check, CircleAlert, RotateCcw, Share2 } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BackHandler, ScrollView, StyleSheet, View } from 'react-native';
+import { BackHandler, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { newTempFileUri, resolveFileUri } from '@/data/files';
-import { DataError, getRental, getValidContract, LockedError, signContract } from '@/data/repos';
+import { getRental, getValidContract, LockedError, signContract } from '@/data/repos';
 import type { Rental, SignedContractWithState } from '@/domain/types';
 import { generateContractPdfInBackground, shareContractPdf } from '@/features/contract/contractPdf';
 import { ContractView } from '@/features/contract/ContractView';
@@ -79,7 +79,7 @@ export default function SignStep() {
         <EmptyState
           icon={CircleAlert}
           title="The agreement can’t be shown."
-          body={contract.error instanceof Error ? contract.error.message : 'Go back to the review and try again.'}
+          body="Please hand the phone back to staff."
           action={<Button label="Back to review" onPress={() => router.back()} />}
         />
       </Screen>
@@ -148,7 +148,6 @@ export default function SignStep() {
       insets={{ bottom: false }}
       footer={
         <ActionFooter rule gutter={layout.customerGutter}>
-          <Button label="Something wrong? Ask staff." variant="quiet" onPress={() => router.back()} style={styles.askStaff} />
           <Button label="Sign agreement" variant="accent" size="customer" onPress={() => setStage('pad')} fullWidth />
         </ActionFooter>
       }
@@ -169,6 +168,10 @@ export default function SignStep() {
           ) : null}
         </View>
         <ContractView html={prep.render.html} rentalId={id} damage={prep.context.existingDamage} audience="customer" />
+        {/* After the agreement, never next to the binding button. */}
+        <View style={styles.askStaffWrap}>
+          <Button label="Something wrong? Ask staff." variant="quiet" onPress={() => router.back()} style={styles.askStaff} />
+        </View>
       </ScrollView>
     </Screen>
   );
@@ -198,6 +201,10 @@ function PadStage({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [today] = useState(() => formatDateLong(Date.now()));
+  const { width, height, fontScale } = useWindowDimensions();
+  const landscape = width > height;
+  // Large system text: the two customer buttons stack (Confirm first) instead of truncating.
+  const stack = fontScale > 1.3;
 
   const confirm = async () => {
     if (!pad.current || saving) return;
@@ -207,42 +214,96 @@ function PadStage({
       const png = await pad.current.exportSignature(newTempFileUri('capture', 'png'));
       await onSign({ tempUri: png.uri, byteSize: png.bytes, sha256: png.sha256 });
     } catch (e) {
-      setError(
-        e instanceof DataError
-          ? e.message
-          : 'Your signature couldn’t be saved. Please try again, or ask staff for help.',
-      );
+      // The customer holds the phone: never show a technical message here.
+      console.warn('[sign] signing failed', e);
+      setError('Your signature couldn’t be saved. Please try again, or ask staff for help.');
       setSaving(false);
     }
   };
+
+  const clear = (
+    <Button
+      label="Clear"
+      icon={RotateCcw}
+      variant="secondary"
+      size="customer"
+      disabled={saving}
+      fullWidth={stack || landscape}
+      onPress={() => {
+        pad.current?.clear();
+        setError(null);
+      }}
+    />
+  );
+  const confirmButton = (
+    <Button
+      label="Confirm signature"
+      variant="accent"
+      size="customer"
+      disabled={!valid}
+      loading={saving}
+      onPress={confirm}
+      fullWidth={stack || landscape}
+      style={stack || landscape ? undefined : styles.fill}
+    />
+  );
+  const fine = error ? (
+    <Text variant="customer.fine" tone="error" accessibilityLiveRegion="polite">
+      {error}
+    </Text>
+  ) : (
+    <Text variant="customer.fine" tone="secondary">
+      Once you confirm, the agreement and your signature are saved as they are and cannot be changed.
+    </Text>
+  );
+  const signaturePad = (
+    <SignaturePad
+      ref={pad}
+      signerName={rental.customer.fullName ?? undefined}
+      dateLabel={today}
+      onChange={(s) => setValid(s.isValid)}
+      style={landscape ? styles.padLandscape : styles.pad}
+    />
+  );
+
+  // Landscape gives the pad the room (UX §2.5): the prompt moves into the top bar, the buttons
+  // into a column beside the pad.
+  if (landscape) {
+    return (
+      <Screen header={<TopBar leading="back" onLeadingPress={onBack} title="Sign above the line" />} insets={{ bottom: false }}>
+        <View style={styles.landscapeRow}>
+          <View style={styles.landscapePad}>
+            <Text variant="customer.secondary" tone="secondary" numberOfLines={1}>
+              {signingRecap(rental.vehicle, existing)}
+            </Text>
+            {signaturePad}
+            {fine}
+          </View>
+          <View style={styles.landscapeActions}>
+            {confirmButton}
+            {clear}
+          </View>
+        </View>
+      </Screen>
+    );
+  }
 
   return (
     <Screen
       header={<TopBar leading="back" onLeadingPress={onBack} title="Back to agreement" />}
       insets={{ bottom: false }}
       footer={
-        <ActionFooter row gutter={layout.customerGutter}>
-          <Button
-            label="Clear"
-            icon={RotateCcw}
-            variant="secondary"
-            size="customer"
-            disabled={saving}
-            onPress={() => {
-              pad.current?.clear();
-              setError(null);
-            }}
-          />
-          <Button
-            label="Confirm signature"
-            variant="accent"
-            size="customer"
-            disabled={!valid}
-            loading={saving}
-            onPress={confirm}
-            style={styles.fill}
-          />
-        </ActionFooter>
+        stack ? (
+          <ActionFooter gutter={layout.customerGutter}>
+            {confirmButton}
+            {clear}
+          </ActionFooter>
+        ) : (
+          <ActionFooter row gutter={layout.customerGutter}>
+            {clear}
+            {confirmButton}
+          </ActionFooter>
+        )
       }
     >
       <View style={styles.padWrap}>
@@ -252,22 +313,8 @@ function PadStage({
         <Text variant="customer.secondary" tone="secondary">
           {signingRecap(rental.vehicle, existing)}
         </Text>
-        <SignaturePad
-          ref={pad}
-          signerName={rental.customer.fullName ?? undefined}
-          dateLabel={today}
-          onChange={(s) => setValid(s.isValid)}
-          style={styles.pad}
-        />
-        {error ? (
-          <Text variant="customer.fine" tone="error" accessibilityLiveRegion="polite">
-            {error}
-          </Text>
-        ) : (
-          <Text variant="customer.fine" tone="secondary">
-            Once you confirm, the agreement and your signature are saved as they are and cannot be changed.
-          </Text>
-        )}
+        {signaturePad}
+        {fine}
       </View>
     </Screen>
   );
@@ -365,9 +412,14 @@ const styles = StyleSheet.create({
   review: { paddingBottom: 32 },
   intro: { paddingHorizontal: layout.customerGutter, paddingTop: 22, paddingBottom: 4, gap: 8 },
   vehicleLine: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 10 },
+  askStaffWrap: { paddingHorizontal: layout.customerGutter, paddingTop: 24 },
   askStaff: { alignSelf: 'flex-start', marginLeft: -12 },
   padWrap: { flex: 1, paddingHorizontal: layout.customerGutter, paddingTop: 8, gap: 12 },
   pad: { flex: 1, minHeight: 180 },
+  padLandscape: { flex: 1, minHeight: 120 },
+  landscapeRow: { flex: 1, flexDirection: 'row', gap: 16, paddingHorizontal: layout.customerGutter, paddingBottom: 12 },
+  landscapePad: { flex: 1, gap: 8 },
+  landscapeActions: { width: 200, justifyContent: 'center', gap: 12 },
   thanks: { flex: 1, paddingHorizontal: layout.customerGutter, paddingTop: 48 },
   thanksTitle: { marginTop: 20 },
   thanksBody: { marginTop: 8 },
