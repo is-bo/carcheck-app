@@ -73,10 +73,12 @@ app_pref (UI prefs k/v)   backup_log   v_file_ref (view of every stored file)
 | Signed contract, void record, template version | never | insert | — |
 | Cancelled rental | never (except linking a profile) | cancel (freezes all photos) | — |
 
-- Status transitions allowed: `draft→active` (only via a signed contract; the AFTER INSERT trigger performs it), `active→returned`, `active→cancelled`. A completed return is reopened with `return_reopened_at`, not by status, so the vehicle is never "out" twice.
+- Status transitions allowed: `draft→active` (only via a signed contract; the AFTER INSERT trigger performs it), `active→returned` (only with a valid, non-voided contract; migration 2), `active→cancelled`. A completed return is reopened with `return_reopened_at`, not by status, so the vehicle is never "out" twice.
 - **Signing** (one transaction): the signature file is already on disk (§5). Then insert `signed_contract`, and the trigger activates the draft and freezes all BEFORE photos. The trigger requires: rental draft/active, no valid contract, `sequence` = count+1, `supersedes_id` = previous contract, and `template_version` matching the template.
-- **Contract content.** `rendered_html` is the exact HTML the customer reviewed, pre-signature. Its only external references are `carcheck-photo:<photoId>` and `carcheck-signature:customer`, resolved at view/print time. Markers are inlined (SVG) from the snapshot, so later damage edits can't alter it. `variables_json` holds the values used. `content_sha256 = sha256(contractHashPreimage(...))` (types.ts) covers ids, sequence, template, signer, time, signature hash, variables and HTML. "Verify contract" recomputes it and re-hashes the signature file.
-- **Void & re-sign** (UX §10): insert `contract_void` (only while the rental is active). Snapshot, pick-up damage and new pick-up photos then unlock. Re-signing inserts `sequence n+1` with `supersedes_id`. Voided contracts stay viewable and are listed in the report. Frozen photos referenced by any contract, voided or not, can never be deleted.
+- **Contract content.** `rendered_html` is the exact HTML the customer reviewed, pre-signature. Its only external references are `carcheck-photo:<photoId>` and `carcheck-signature:customer`, resolved at view/print time. Markers are inlined (SVG) from the snapshot, so later damage edits can't alter it. `variables_json` holds the values used. `content_sha256 = sha256(contractHashPreimage(...))` (types.ts) covers ids, sequence, template, signer, time, signature hash, variables and HTML. "Check contract" (contract viewer) recomputes it, re-hashes the signature file and every pick-up photo the contract shows (those rows are frozen, so their stored hash is the reference). Signing re-renders inside the transaction and refuses HTML prepared before the rental changed; signing and restore both reject HTML with tags/attributes the renderer never writes (`contractHtmlProblems`).
+- **Void & re-sign** (UX §10): insert `contract_void` (only while the rental is active and its return inspection has not started; migration 2). Snapshot, pick-up damage and new pick-up photos then unlock. Re-signing inserts `sequence n+1` with `supersedes_id`. Voided contracts stay viewable and are listed in the report. Frozen photos referenced by any contract, voided or not, can never be deleted.
+- **Vehicle change** (migration 2): refused once the rental has any signed contract (voided or not), frozen photo or damage row; a physical car swap is cancel + new rental. A draft with pick-up photos asks "same car, keep photos / different car, delete photos". A "Repaired / gone" resolution recorded by a draft is undone when that draft is discarded or switches car (triggers).
+- **Close-ups** belong to the same rental and phase as their mark (migration 2 trigger + repo).
 - Files can't be protected by SQLite. The file module therefore has **no API to overwrite or delete** paths it did not just create, other than the draft-discard and orphan-sweep routines (§4).
 
 ## 4. Deletion policy & cleanup
@@ -86,7 +88,7 @@ app_pref (UI prefs k/v)   backup_log   v_file_ref (view of every stored file)
 - **Rental**: only drafts can be deleted ("Discard draft"). It cascades to inspections, photos, damage, owned documents and artifacts; the trigger blocks every other status. Signed rentals are **never deletable in MVP** (cancel instead). A future retention purge would ship as a migration that replaces the guard triggers.
 - **Delete order**: DB transaction first, files after commit (a crash in between leaves an orphan, never a dangling row). Draft discard then removes `photos/<rentalId>/`, `docs/r-<rentalId>/` and `generated/<rentalId>/`.
 - **Retake** (unfrozen photo only): insert the new photo, re-point any damage rows to it (the normalized ring is kept, and the UI asks the employee to check it), delete the old row, delete the old file after commit. See open question 1.
-- **Orphan sweep** runs deferred after startup and from Storage → Clean up. Files under the files root that are not in `v_file_ref` and older than 1 h (so in-flight captures are safe) are deleted. Referenced-but-missing files are only *reported*; rows are never auto-deleted.
+- **Orphan sweep** runs deferred after startup and from Storage → Clean up. Files under the files root that are not in `v_file_ref` and older than 1 h (so in-flight captures are safe) are deleted — but never when the DB references nothing or when orphans exceed 20 % of stored files (more than 10): that means a lost or replaced database, not leaked files (`isOrphanSweepSafe`). Referenced-but-missing files are only *reported*; rows are never auto-deleted.
 
 ## 5. File storage layout
 
@@ -174,7 +176,9 @@ expo-file-system's `move(..., {overwrite})` deletes the target and then renames 
 - Both exist and `next` parses → it wins.
 - `next` is unparsable → delete it.
 - `verifyPending` → verify the root; on failure switch back to `previous`.
-- Then delete `data-*` dirs named by neither `root` nor `previous`.
+- No usable pointer, or its root is gone with nothing to roll back to → adopt the root whose DB changed last and keep the runner-up as the 14-day `previous` (the guess may be wrong). Nothing is deleted on such a boot, and the employee is told.
+- Otherwise delete `data-*` dirs named by neither `root` nor `previous`.
+- The restore's `backup_log` row is written into the staged DB before the switch, so a crash after it still records the restore. Boot outcomes (rolled back, finished while closed, recovered) show a message after launch.
 
 Every step is a single atomic filesystem operation, so the pointer always names a complete root.
 
