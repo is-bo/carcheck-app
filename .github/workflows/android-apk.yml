@@ -51,10 +51,6 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - uses: gradle/actions/setup-gradle@v6
-        with:
-          cache-provider: basic
-
       - name: Install dependencies
         run: npm ci
 
@@ -63,6 +59,11 @@ jobs:
 
       - name: Generate native Android project
         run: npx expo prebuild --platform android --no-install
+
+      # After prebuild: the basic cache provider hashes android/**/*.gradle*, which only exists now.
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
 
       - name: Prepare signing
         id: signing
