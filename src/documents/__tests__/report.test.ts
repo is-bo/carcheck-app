@@ -24,6 +24,11 @@ const thumbs: DocPhotoThumb[] = [
   { angleKey: 'rear', slot: 1, angleLabel: 'Rear', image: null, capturedAt: null, tzOffsetMin: null, skipReason: 'blocked' },
 ];
 
+const pickup: DocPhotoThumb[] = [
+  { angleKey: 'front', slot: 1, angleLabel: 'Front', image: JPEG, capturedAt: T0 - 86_400_000, tzOffsetMin: 120, skipReason: null },
+  { angleKey: 'rear', slot: 1, angleLabel: 'Rear', image: JPEG, capturedAt: T0 - 86_400_000, tzOffsetMin: 120, skipReason: null },
+];
+
 const signed: ResolvedContract = {
   contract: contract(),
   assets: { 'carcheck-photo:p-1': JPEG, 'carcheck-photo:p-2': JPEG, [SIGNATURE_TOKEN]: PNG },
@@ -42,6 +47,7 @@ describe('buildDamageReportHtml: damage variant', () => {
       damages: [existing, unc2, new1],
       evidence: [evidence],
       returnPhotos: thumbs,
+      pickupPhotos: pickup,
       contracts: [voided, resigned],
     }),
     noFonts,
@@ -83,10 +89,14 @@ describe('buildDamageReportHtml: damage variant', () => {
     expect(table).toContain('Pick-up');
   });
 
-  it('adds the return contact sheet, then the valid contract as appendix and every signature', () => {
-    expect(html).toContain('All angles at return');
+  it('adds the pick-up | return contact sheet, then the valid contract as appendix and every signature', () => {
+    expect(html).toContain('All angles, pick-up and return');
     expect(html).toContain('Skipped · Blocked');
     expect(html).toContain('Front · After · 24.09.2026 17:05');
+    // BEFORE then AFTER for each angle.
+    const sheet = html.slice(html.indexOf('<div class="sheet">'));
+    expect(sheet.indexOf('Front · Before')).toBeLessThan(sheet.indexOf('Front · After'));
+    expect(sheet.indexOf('Front · After')).toBeLessThan(sheet.indexOf('Rear · Before'));
     const appendix = html.slice(html.indexOf('<h1>Signed contract</h1>'));
     expect(appendix).toContain('<h1>Rental agreement</h1>');
     expect(appendix).toContain('No. 2 (re-signed)');
@@ -115,8 +125,9 @@ describe('buildDamageReportHtml: clean return', () => {
   it('states the clean result and shows the AFTER contact sheet instead of evidence', () => {
     expect(html).toContain('No new damage found. Returned in the same condition as at pick-up.');
     expect(html).not.toContain('class="evidence');
-    expect(html).toContain('Condition at return');
-    expect(count(html, '<div class="tile">')).toBe(2);
+    expect(html).toContain('Condition at pick-up and return');
+    // Two angles, each with an empty BEFORE partner (no pick-up thumbs in this input) and its AFTER.
+    expect(count(html, '<div class="tile">')).toBe(4);
     expect(html).toContain('Existing A');
     expect(html).not.toContain('<h2>Signatures</h2>');
   });

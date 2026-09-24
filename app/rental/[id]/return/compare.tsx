@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowRight, Camera, EllipsisVertical, LayoutList, PencilLine, Plus } from 'lucide-react-native';
+import { ArrowRight, Camera, ChevronRight, EllipsisVertical, Eye, EyeOff, History, LayoutList, PencilLine, Plus, Smartphone } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -38,11 +38,16 @@ import { ComparisonView, OpacityControl, useSharedViewport, type CompareMode } f
 import { dividerHandleHit } from '@/media/compare/viewportMath';
 import {
   ActionFooter,
+  BottomSheet,
   Button,
+  ConfirmDialog,
   formatPlate,
   formatRelativeDateTime,
   IconButton,
+  ListRow,
   markerLabel,
+  plural,
+  RETURN_STEPS,
   Screen,
   SegmentedControl,
   showToast,
@@ -50,7 +55,7 @@ import {
   TopBar,
 } from '@/ui';
 import { duration } from '@/ui/motion';
-import { layout, rebate, touch } from '@/ui/theme/tokens';
+import { layout, overlay, rebate, touch } from '@/ui/theme/tokens';
 
 const MODES = [
   { value: 'sideBySide', label: 'Side by side' },
@@ -64,6 +69,8 @@ const SWIPE_VELOCITY = 650;
 const HANDLE_HALF_W = touch.sliderHandle / 2 + 8;
 const HANDLE_HALF_H = touch.sliderHandle / 2 + 16;
 const RAIL_WIDTH = 304;
+/** Below this height a side-by-side pane is too small to judge damage in portrait. */
+const SMALL_PANE = 160;
 
 let existingHintShown = false;
 
@@ -160,6 +167,9 @@ function CompareBody({ rental, sequence, damages, initialMode, requested, onLeav
   const [anglesOpen, setAnglesOpen] = useState(false);
   const [closeupFor, setCloseupFor] = useState<Damage | null>(null);
   const [busy, setBusy] = useState(false);
+  const [reopenAsk, setReopenAsk] = useState(false);
+  const [marksOpen, setMarksOpen] = useState(false);
+  const [stageHeight, setStageHeight] = useState(0);
 
   const viewport = useSharedViewport();
   const opacity = useSharedValue(0.5);
@@ -227,26 +237,25 @@ function CompareBody({ rental, sequence, damages, initialMode, requested, onLeav
     });
   }, []);
 
+  // Reopening invalidates a report that may already be shared: always confirmed (UX M7).
   const reopen = useCallback(async () => {
     setBusy(true);
     try {
       await reopenReturn(rentalId);
+      setReopenAsk(false);
       showToast('Return reopened. Complete it again to update the report.');
-      return true;
     } catch (e) {
       showToast(e instanceof DataError ? e.message : "Couldn't reopen the return. Try again.");
-      return false;
     } finally {
       setBusy(false);
     }
   }, [rentalId]);
 
-  const startMarking = useCallback(async () => {
-    if (!after) return;
-    if (!editable && !(await reopen())) return;
+  const startMarking = useCallback(() => {
+    if (!after || !editable) return;
     viewport.reset(true);
     setMarking(true);
-  }, [after, editable, reopen, viewport]);
+  }, [after, editable, viewport]);
 
   const goNext = useCallback(() => {
     if (!pair) return;
@@ -312,23 +321,55 @@ function CompareBody({ rental, sequence, damages, initialMode, requested, onLeav
   // --- pieces -----------------------------------------------------------------------------------
   const total = sequence.length;
   const title = `${pair.label} · ${current + 1} of ${total}`;
-  const subtitle = [rental.customer.fullName, rental.vehicle ? formatPlate(rental.vehicle.plate) : null].filter(Boolean).join(' · ');
+  // The return's stepper (Inspect, Compare, Details, Report) shows here too, not only on Details.
+  const subtitle = [
+    editable ? `Return 2 of ${RETURN_STEPS.length}` : null,
+    rental.customer.fullName,
+    rental.vehicle ? formatPlate(rental.vehicle.plate) : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   const menuActions: SheetAction[] = [
     { label: 'All angles', icon: LayoutList, onPress: () => setAnglesOpen(true) },
     ...(editable && after && after.frozenAt === null
       ? [{ label: 'Retake return photo', icon: Camera, onPress: () => router.push(returnRoutes.capture(rentalId, pair)) }]
       : []),
-    ...(!editable ? [{ label: 'Edit return', detail: 'Reopens the return; the report is rebuilt when you complete it.', icon: PencilLine, onPress: () => void reopen() }] : []),
+    ...(!editable ? [{ label: 'Edit return', detail: 'Reopens the return; the report is rebuilt when you complete it.', icon: PencilLine, onPress: () => setReopenAsk(true) }] : []),
   ];
 
+  const canToggleExisting = !!before && pickupMarks.length > 0;
   const topBar = (
     <TopBar
       title={title}
-      subtitle={subtitle}
+      // Landscape: the plate is on the photo tag; the rail needs the height.
+      subtitle={landscape ? undefined : subtitle}
       leading="back"
       onLeadingPress={goBack}
-      actions={<IconButton icon={EllipsisVertical} accessibilityLabel="More" onPress={() => setMenuOpen(true)} />}
+      actions={
+        <>
+          {!landscape && !marking && after ? (
+            <>
+              <IconButton
+                icon={showMarkers ? Eye : EyeOff}
+                accessibilityLabel="Markers"
+                accessibilityHint={showMarkers ? 'Hides the damage marks' : 'Shows the damage marks'}
+                selected={showMarkers}
+                onPress={() => setShowMarkers((v) => !v)}
+              />
+              {canToggleExisting ? (
+                <IconButton
+                  icon={History}
+                  accessibilityLabel="Existing damage on AFTER"
+                  selected={showExisting}
+                  onPress={toggleExisting}
+                />
+              ) : null}
+            </>
+          ) : null}
+          <IconButton icon={EllipsisVertical} accessibilityLabel="More" onPress={() => setMenuOpen(true)} />
+        </>
+      }
     />
   );
 
@@ -386,7 +427,10 @@ function CompareBody({ rental, sequence, damages, initialMode, requested, onLeav
       <GestureDetector gesture={swipe}>
         <Animated.View
           style={[styles.stage, swipeStyle]}
-          onLayout={(e) => stageSize.set({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}
+          onLayout={(e) => {
+            stageSize.set({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height });
+            setStageHeight(e.nativeEvent.layout.height);
+          }}
           collapsable={false}
         >
           {stageContent}
@@ -397,6 +441,14 @@ function CompareBody({ rental, sequence, damages, initialMode, requested, onLeav
           No pick-up photo for this angle
         </Text>
       ) : null}
+      {!landscape && mode === 'sideBySide' && before && after && stageHeight > 0 && stageHeight / 2 < SMALL_PANE ? (
+        <View style={styles.sidewaysTag} pointerEvents="none">
+          <Smartphone size={14} color={rebate.textSecondary} style={styles.sidewaysIcon} />
+          <Text variant="code" tone="secondary">
+            Turn sideways for bigger photos
+          </Text>
+        </View>
+      ) : null}
       {mode === 'overlay' && before && after ? <OpacityControl value={opacity} /> : null}
     </View>
   );
@@ -404,13 +456,22 @@ function CompareBody({ rental, sequence, damages, initialMode, requested, onLeav
   const toggles = !marking && after ? (
     <View style={styles.toggles}>
       <ToggleChip label="Markers" on={showMarkers} onPress={() => setShowMarkers((v) => !v)} />
-      {before && pickupMarks.length > 0 ? <ToggleChip label="Existing" on={showExisting} onPress={toggleExisting} /> : null}
+      {canToggleExisting ? <ToggleChip label="Existing" on={showExisting} onPress={toggleExisting} /> : null}
     </View>
   ) : null;
 
-  const damageRows = (
-    <DamageRows damages={rows} onOpen={editable ? (d) => dm.select(d.id) : undefined} maxHeight={landscape ? undefined : 112} />
-  );
+  const openRow = editable ? (d: Damage) => dm.select(d.id) : undefined;
+  // Portrait keeps the stage big: one summary row, the list opens in a sheet.
+  const marksSummary =
+    rows.length > 0 && !marking ? (
+      <ListRow
+        title={plural(rows.length, '{n} mark', '{n} marks')}
+        subtitle={rows.map((d) => `${d.foundPhase === 'before' ? 'Existing' : d.status === 'uncertain' ? 'Uncertain' : 'New'} ${markerLabel(d.status, d.number)}`).join(', ')}
+        trailing={<ChevronRight size={20} color={rebate.textSecondary} />}
+        onPress={() => setMarksOpen(true)}
+        divider={false}
+      />
+    ) : null;
 
   const isLast = current === total - 1;
   const nextLabel = isLast ? (editable ? 'Continue' : 'Done') : 'Next angle';
@@ -429,15 +490,25 @@ function CompareBody({ rental, sequence, damages, initialMode, requested, onLeav
     </View>
   ) : (
     <View style={landscape ? styles.actionsStack : styles.actionsRow}>
-      <Button
-        label="Mark new damage"
-        icon={Plus}
-        onPress={() => void startMarking()}
-        disabled={!after}
-        loading={busy}
-        style={landscape ? undefined : styles.primaryAction}
-        fullWidth={landscape}
-      />
+      {editable ? (
+        <Button
+          label="Mark damage"
+          icon={Plus}
+          onPress={startMarking}
+          disabled={!after}
+          style={landscape ? undefined : styles.primaryAction}
+          fullWidth={landscape}
+        />
+      ) : (
+        <Button
+          label="Edit return"
+          variant="secondary"
+          icon={PencilLine}
+          onPress={() => setReopenAsk(true)}
+          style={landscape ? undefined : styles.primaryAction}
+          fullWidth={landscape}
+        />
+      )}
       <Button
         label={nextLabel}
         variant="secondary"
@@ -454,6 +525,33 @@ function CompareBody({ rental, sequence, damages, initialMode, requested, onLeav
     <>
       <ActionSheet open={menuOpen} onClose={() => setMenuOpen(false)} actions={menuActions} accessibilityLabel="More" />
       <AngleListSheet open={anglesOpen} pairs={sequence} index={current} onSelect={setIndex} onClose={() => setAnglesOpen(false)} />
+      <BottomSheet
+        open={marksOpen}
+        onClose={() => setMarksOpen(false)}
+        snapPoints={['50%']}
+        accessibilityLabel="Marks on this angle"
+      >
+        <DamageRows
+          damages={rows}
+          onOpen={
+            openRow
+              ? (d) => {
+                  setMarksOpen(false);
+                  openRow(d);
+                }
+              : undefined
+          }
+        />
+      </BottomSheet>
+      <ConfirmDialog
+        visible={reopenAsk}
+        title="Reopen this return?"
+        message="The report is rebuilt when you complete it again. Anything already shared stays as it was."
+        confirmLabel="Reopen"
+        busy={busy}
+        onCancel={() => setReopenAsk(false)}
+        onConfirm={() => void reopen()}
+      />
       <DamageSheet
         visible={dm.selected !== null}
         mode="return"
@@ -489,8 +587,10 @@ function CompareBody({ rental, sequence, damages, initialMode, requested, onLeav
           <View style={[styles.rail, { paddingTop: insets.top, paddingBottom: insets.bottom + layout.bottomActionInset, paddingRight: insets.right }]}>
             {topBar}
             {modeSwitch}
-            {toggles}
-            <View style={styles.flex}>{damageRows}</View>
+            <ScrollView style={styles.flex}>
+              {toggles}
+              <DamageRows damages={rows} onOpen={openRow} />
+            </ScrollView>
             <View style={styles.railActions}>{actions}</View>
           </View>
         </View>
@@ -516,8 +616,7 @@ function CompareBody({ rental, sequence, damages, initialMode, requested, onLeav
     >
       {modeSwitch}
       {stage}
-      {toggles}
-      {damageRows}
+      {marksSummary}
     </Screen>
   );
 }
@@ -532,6 +631,19 @@ const styles = StyleSheet.create({
   stageWrap: { flex: 1, minHeight: 200 },
   stage: { flex: 1, overflow: 'hidden' },
   oneSideNote: { paddingHorizontal: layout.screenGutter, paddingTop: 8 },
+  sidewaysTag: {
+    position: 'absolute',
+    top: 8,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 4,
+    backgroundColor: overlay.tagBackground,
+  },
+  sidewaysIcon: { marginTop: -1 },
   toggles: { flexDirection: 'row', gap: 8, paddingHorizontal: layout.screenGutter, paddingTop: 12 },
   strip: { borderTopWidth: 1, borderTopColor: rebate.divider, marginHorizontal: layout.screenGutter, paddingTop: 6 },
   actionsRow: { flexDirection: 'row', gap: 10 },

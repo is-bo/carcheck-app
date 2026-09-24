@@ -120,7 +120,8 @@ export const rebate: ColorRoles = {
   textSecondary: palette.onRebate2,
   textTertiary: palette.onRebate2,
   divider: palette.rebateRule,
-  outline: palette.rebateRule,
+  // Sunlight Rule: anything tappable on the dark screens keeps a >= 3:1 boundary (about 8:1).
+  outline: palette.onRebate2,
   ruleStrong: palette.onRebate,
 
   primary: palette.onRebate,

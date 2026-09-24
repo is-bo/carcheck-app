@@ -96,8 +96,9 @@ function CaptureFlow({ rentalId, pairs, ghostOpacity, requested, onLeave }: Capt
   const exteriorIndex = current && isExterior(current) ? targets.filter(isExterior).findIndex((t) => samePair(t, current)) : -1;
   const canLeave = hasExteriorReturnPhoto(pairs) || targets.some((t) => isExterior(t) && t.state === 'done');
 
+  // Compare is usually underneath (retake, jump): go back to it instead of stacking another one.
   const goCompare = useCallback(() => {
-    router.push(returnRoutes.compare(rentalId));
+    router.dismissTo(returnRoutes.compare(rentalId));
   }, [rentalId]);
 
   const advance = useCallback(
@@ -129,8 +130,13 @@ function CaptureFlow({ rentalId, pairs, ghostOpacity, requested, onLeave }: Capt
     async (tempUri: string, meta: { capturedAt: number; tzOffsetMin: number }) => {
       if (!current) return;
       const key = { angleKey: current.angleKey, slot: current.slot };
+      const label = current.label.toLowerCase();
+      // Retaking moves the new-damage rings onto the new shot (DECISIONS Data §1): ask for a check.
+      const hadMarks = current.pair.after !== null && current.pair.newDamageCount + current.pair.uncertainDamageCount > 0;
       mark(key, 'done');
-      advance(currentIndex, withState(targets, key, 'done'));
+      // A retake returns to where it was asked for (Compare) instead of walking on.
+      if (requested && samePair(requested, key) && current.pair.after !== null && router.canGoBack()) router.back();
+      else advance(currentIndex, withState(targets, key, 'done'));
       try {
         await saveCapturedPhoto({
           rentalId,
@@ -141,12 +147,13 @@ function CaptureFlow({ rentalId, pairs, ghostOpacity, requested, onLeave }: Capt
           tempUri,
           meta,
         });
+        if (hadMarks) showToast(`Photo retaken. Check the marks on the new ${label} photo still sit on the damage.`);
       } catch (e) {
         mark(key, null);
         showToast(e instanceof DataError ? e.message : `Couldn't save the ${current.label.toLowerCase()} photo. Take it again.`);
       }
     },
-    [advance, current, currentIndex, mark, rentalId, targets],
+    [advance, current, currentIndex, mark, rentalId, requested, targets],
   );
 
   const skip = useCallback(

@@ -170,21 +170,37 @@ export function closeupFigures(damages: DocDamage[]): string {
 }
 
 /** Compact 4-up contact sheet with edge-code captions ("FRONT LEFT · AFTER · 24.09.2026 17:05"). */
+function sheetTile(t: DocPhotoThumb, phaseWord: string): string {
+  const photo = img(t.image, { alt: `${t.angleLabel} ${phaseWord}` });
+  const inner = photo
+    ? photo
+    : `<div class="skip">${escapeHtml(t.skipReason ? `Skipped · ${skipReasonLabel(t.skipReason)}` : 'No photo')}</div>`;
+  const time = t.capturedAt !== null && t.tzOffsetMin !== null ? formatEdgeCodeTime(t.capturedAt, t.tzOffsetMin) : null;
+  const code = joinNonEmpty([t.angleLabel, phaseWord, time]);
+  return `<div class="tile"><div class="tile-frame">${inner}</div><span class="code">${escapeHtml(code)}</span></div>`;
+}
+
 export function contactSheet(thumbs: DocPhotoThumb[], phaseWord: string): string {
   if (thumbs.length === 0) return '';
-  const tiles = thumbs
-    .map((t) => {
-      const photo = img(t.image, { alt: `${t.angleLabel} ${phaseWord}` });
-      const inner = photo
-        ? photo
-        : `<div class="skip">${escapeHtml(t.skipReason ? `Skipped · ${skipReasonLabel(t.skipReason)}` : 'No photo')}</div>`;
-      const time =
-        t.capturedAt !== null && t.tzOffsetMin !== null ? formatEdgeCodeTime(t.capturedAt, t.tzOffsetMin) : null;
-      const code = joinNonEmpty([t.angleLabel, phaseWord, time]);
-      return `<div class="tile"><div class="tile-frame">${inner}</div><span class="code">${escapeHtml(code)}</span></div>`;
-    })
-    .join('');
-  return `<div class="sheet">${tiles}</div>`;
+  return `<div class="sheet">${thumbs.map((t) => sheetTile(t, phaseWord)).join('')}</div>`;
+}
+
+/**
+ * Pick-up and return condition side by side: BEFORE | AFTER per angle, two angles per row of
+ * the four-column sheet. Angles present in only one phase keep an empty "No photo" partner.
+ */
+export function pairedContactSheet(before: DocPhotoThumb[], after: DocPhotoThumb[]): string {
+  const key = (t: DocPhotoThumb) => `${t.angleKey}#${t.slot}`;
+  const afterByKey = new Map(after.map((t) => [key(t), t]));
+  const keys = [...before.map(key), ...after.map(key).filter((k) => !before.some((b) => key(b) === k))];
+  const beforeByKey = new Map(before.map((t) => [key(t), t]));
+  const empty = (t: DocPhotoThumb): DocPhotoThumb => ({ ...t, image: null, capturedAt: null, tzOffsetMin: null, skipReason: null });
+  const tiles = keys.map((k) => {
+    const b = beforeByKey.get(k);
+    const a = afterByKey.get(k);
+    return sheetTile(b ?? empty(a!), 'Before') + sheetTile(a ?? empty(b!), 'After');
+  });
+  return tiles.length ? `<div class="sheet">${tiles.join('')}</div>` : '';
 }
 
 export interface SignatureBlockInput {

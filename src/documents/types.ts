@@ -118,6 +118,8 @@ export interface DamageReportInput {
   evidence: DocEvidenceImage[];
   /** AFTER photos of every angle (skipped angles included), in walk-around order. */
   returnPhotos: DocPhotoThumb[];
+  /** BEFORE photos of the same angles, so the report shows the pick-up condition too. */
+  pickupPhotos: DocPhotoThumb[];
   /** Every signed contract of the rental, oldest first; voided ones need only their signature asset. */
   contracts: ResolvedContract[];
   generatedAt: EpochMs;

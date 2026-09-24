@@ -8,7 +8,7 @@
  */
 import { Image } from 'expo-image';
 import { Camera, NotebookPen, Trash2 } from 'lucide-react-native';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import type { DamageStatus } from '@/domain/types';
@@ -62,7 +62,12 @@ export interface DamageSheetProps {
   readOnlyReason?: string;
 }
 
-const SHEET_HEIGHT = { pre_existing: 452, return: 540 } as const;
+/**
+ * Compact on purpose (UX H4): the header, the status (return) and the type grid fit with Done,
+ * severity / note / close-up scroll in below. The mark stays visible above the sheet, and with
+ * no scrim its ring can still be dragged and resized while the sheet is open.
+ */
+const SHEET_HEIGHT = { pre_existing: 340, return: 420 } as const;
 const NOTE_EXTRA = 64;
 const READ_ONLY_HEIGHT = 340;
 
@@ -110,6 +115,14 @@ export function DamageSheet({
     onClose();
   };
 
+  // Leaving the screen with the sheet open (Back in the top bar) still keeps what was chosen.
+  const pendingSave = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    pendingSave.current =
+      visible && !readOnly && Object.keys(changedValues(start, values)).length > 0 ? () => onSave(finalValues()) : null;
+  });
+  useEffect(() => () => pendingSave.current?.(), []);
+
   const initialStatus = start.status;
   const shownLabel = previewBadgeLabel(initialStatus, values.status, badgeLabel);
   const titleLabel = (badgeLabel ?? '').replace('?', '');
@@ -138,6 +151,7 @@ export function DamageSheet({
       open={visible}
       onClose={dismiss}
       snapPoints={[height]}
+      backdrop="none"
       header={header}
       accessibilityLabel={title}
       footer={<Button label="Done" onPress={done} fullWidth />}
@@ -147,6 +161,20 @@ export function DamageSheet({
           <ReadOnlyDetails values={values} reason={readOnlyReason} closeupUri={closeupUri} />
         ) : (
           <>
+            {mode === 'return' ? (
+              <View style={styles.group}>
+                <Text variant="labelSmall" tone="secondary">
+                  Status
+                </Text>
+                <SegmentedControl
+                  options={RETURN_STATUS_OPTIONS}
+                  value={values.status}
+                  onChange={(status: DamageStatus) => set({ status })}
+                  accessibilityLabel="Damage status"
+                />
+              </View>
+            ) : null}
+
             <ChipGroup
               options={DAMAGE_TYPE_OPTIONS}
               value={values.type}
@@ -169,20 +197,6 @@ export function DamageSheet({
                 accessibilityLabel="Severity"
               />
             </View>
-
-            {mode === 'return' ? (
-              <View style={styles.group}>
-                <Text variant="labelSmall" tone="secondary">
-                  Status
-                </Text>
-                <SegmentedControl
-                  options={RETURN_STATUS_OPTIONS}
-                  value={values.status}
-                  onChange={(status: DamageStatus) => set({ status })}
-                  accessibilityLabel="Damage status"
-                />
-              </View>
-            ) : null}
 
             {noteOpen ? (
               <View style={styles.group}>

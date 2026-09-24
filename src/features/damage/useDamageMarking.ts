@@ -67,15 +67,27 @@ export function useDamageMarking({ rentalId, photo, editable }: DamageMarkingOpt
   const closeupId = selected?.closeupPhotoId ?? null;
   const closeup = useLiveQuery(async () => (closeupId ? getPhoto(closeupId) : null), [closeupId], ['photo']);
 
+  // The damage sheet has no scrim, so the photo stays touchable while it is open: taps there
+  // must not drop or switch marks under the sheet's unsaved edits. Done / swipe-down first.
+  const busyWithMark = selected !== null;
+
   const drop = useCallback(
     (ring: Ring) => {
-      if (!photoId || !editable) return;
+      if (!photoId || !editable || busyWithMark) return;
       addDamage({ photoId, marker: { v: 1, ring }, status: mode === 'return' ? 'new' : undefined }).then(
         (d) => setSelectedId(d.id),
         (e: unknown) => reportError(e, "Couldn't save the mark. Try again."),
       );
     },
-    [photoId, editable, mode],
+    [photoId, editable, mode, busyWithMark],
+  );
+
+  const select = useCallback(
+    (id: Id | null) => {
+      if (id !== null && busyWithMark && id !== selectedId) return;
+      setSelectedId(id);
+    },
+    [busyWithMark, selectedId],
   );
 
   const change = useCallback(
@@ -143,7 +155,7 @@ export function useDamageMarking({ rentalId, photo, editable }: DamageMarkingOpt
     selectedId: selected ? selectedId : null,
     selected,
     selectedCloseup: closeup.data ?? null,
-    select: setSelectedId,
+    select,
     drop,
     change,
     save,

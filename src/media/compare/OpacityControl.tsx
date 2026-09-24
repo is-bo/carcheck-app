@@ -129,7 +129,8 @@ const styles = StyleSheet.create({
     right: 0,
     height: 4,
     borderRadius: 2,
-    backgroundColor: rebate.divider,
+    // 60 % of the control outline: visible in sunlight, quieter than the fill.
+    backgroundColor: `${rebate.outline}99`,
   },
   trackFill: {
     position: 'absolute',

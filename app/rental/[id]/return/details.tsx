@@ -239,8 +239,14 @@ function DetailsForm({ rental, pairs, onLeave }: { rental: Rental; pairs: AngleP
                 schedule();
               }}
               onBlur={() => void persist().catch(() => undefined)}
-              hint={rental.startMileage !== null ? `Start: ${formatMileage(rental.startMileage, unit)}` : undefined}
-              error={belowStart ? `Lower than the start mileage (${formatMileage(rental.startMileage, unit)}).` : null}
+              // Lower than the start is unusual but never blocks: a hint, not an error.
+              hint={
+                belowStart
+                  ? `Lower than the start (${formatMileage(rental.startMileage, unit)}). Check the odometer.`
+                  : rental.startMileage !== null
+                    ? `Start: ${formatMileage(rental.startMileage, unit)}`
+                    : undefined
+              }
               returnKeyType="done"
             />
           </View>

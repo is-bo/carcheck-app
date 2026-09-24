@@ -112,7 +112,7 @@ export interface ReturnReadiness {
   /** Pairs with a return photo (what "angles compared" counts). */
   comparable: number;
   reviewed: number;
-  /** Photographed at return but never viewed in Compare. */
+  /** Outside angles photographed at return but never viewed in Compare. */
   unreviewed: AnglePair[];
   /** Exterior angles neither photographed nor skipped at return. */
   missing: AnglePair[];
@@ -133,7 +133,8 @@ export function returnReadiness(pairs: readonly AnglePair[]): ReturnReadiness {
     const status = compareStatus(p);
     if (p.after) comparable += 1;
     if (status === 'reviewed') reviewed += 1;
-    else if (status === 'unreviewed') unreviewed.push(p);
+    // Optional shots (dashboard, extras) never hold up completion: only outside angles must be viewed.
+    else if (status === 'unreviewed' && isExterior(p)) unreviewed.push(p);
     else if (status === 'missing') missing.push(p);
   }
   const hasExteriorPhoto = hasExteriorReturnPhoto(pairs);
