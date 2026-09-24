@@ -57,21 +57,34 @@ export default function SignStep() {
   }, [contract.error, id, signed]);
 
   const done = useDone(id);
+  // Continue lands on the rental with the share offer, one tap shorter than a success screen (UX §2.5).
+  const finish = useCallback(
+    (c: SignedContractWithState) => {
+      done();
+      showToast('Rental started', {
+        action: {
+          label: 'Share contract',
+          onPress: () => void shareContractPdf(c.id).catch(() => showToast('Couldn’t create the contract PDF yet. Try again in a moment.')),
+        },
+      });
+    },
+    [done],
+  );
   useFocusEffect(
     useCallback(() => {
       const sub = BackHandler.addEventListener('hardwareBackPress', () => {
         if (stage === 'pad') setStage('review');
-        else if (stage === 'thanks') setStage('done');
+        else if (stage === 'thanks' && signed) finish(signed);
         else if (stage === 'done') done();
         else return false;
         return true;
       });
       return () => sub.remove();
-    }, [stage, done]),
+    }, [stage, done, finish, signed]),
   );
 
   if (stage === 'done' && signed) return <SuccessStage rentalId={id} contract={signed} onDone={done} />;
-  if (stage === 'thanks' && signed) return <ThanksStage rentalId={id} onContinue={() => setStage('done')} />;
+  if (stage === 'thanks' && signed) return <ThanksStage rentalId={id} onContinue={() => finish(signed)} />;
 
   if (contract.error && !contract.data) {
     return (
