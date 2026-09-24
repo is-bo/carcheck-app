@@ -12,6 +12,7 @@ import {
 import {
   abandonedRoots,
   chooseRootWithoutPointer,
+  fallbackPointer,
   isSafetyCopyExpired,
   newPointer,
   parsePointer,
@@ -100,6 +101,22 @@ describe('file paths', () => {
     // A few crash leftovers are normal.
     expect(isOrphanSweepSafe(orphans(8), 20, 12)).toBe(true);
     expect(isOrphanSweepSafe(orphans(15), 100, 85)).toBe(true);
+  });
+
+  it('keeps the runner-up root as a safety copy when the live root is only a guess', () => {
+    const now = 1_000;
+    const p = fallbackPointer(
+      'data-newest',
+      [
+        { name: 'data-newest', dbModifiedAt: 30 },
+        { name: 'data-real', dbModifiedAt: 20 },
+        { name: 'data-old', dbModifiedAt: 10 },
+      ],
+      now,
+    );
+    expect([p.root, p.previous, p.verifyPending]).toEqual(['data-newest', 'data-real', false]);
+    expect(p.previousUntil).toBeGreaterThan(now);
+    expect(fallbackPointer('data-only', [{ name: 'data-only', dbModifiedAt: 1 }], now).previous).toBeNull();
   });
 
   it('keeps share copies for 24 h and other temp files for 1 h', () => {

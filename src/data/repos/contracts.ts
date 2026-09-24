@@ -250,6 +250,17 @@ async function loadContract(db: SqlExecutor, id: Id): Promise<SignedContractWith
 }
 
 /**
+ * Variables of `submitted` that differ from a fresh render of the rental. Keys that change with
+ * the render moment alone (dates of signing) are ignored: they are found by rendering twice.
+ */
+export function staleVariables(template: { body: string }, context: RentalContext, submitted: ContractVariables): string[] {
+  const a = renderContractTemplate(template, context);
+  const b = renderContractTemplate(template, { ...context, renderedAt: context.renderedAt + 7 * 24 * 3_600_000 + 61_000 });
+  const same = (x: unknown, y: unknown) => JSON.stringify(x) === JSON.stringify(y);
+  return Object.keys(a.variables).filter((k) => same(a.variables[k], b.variables[k]) && !same(a.variables[k], submitted[k]));
+}
+
+/**
  * "Confirm signature" (one transaction): stores the signature file, inserts the immutable
  * contract; the trigger activates the rental and freezes every pick-up photo.
  */
@@ -281,6 +292,12 @@ export async function signContract(input: SignContractInput): Promise<SignedCont
         'Contract template',
         input.templateId,
       );
+      // What the customer saw must still describe this rental (mileage, snapshot, pick-up marks):
+      // re-render inside the transaction and compare every variable that does not depend on the clock.
+      const stale = staleVariables(template, await loadContext(tx, input.rentalId, { tzOffsetMin: input.tzOffsetMin }), input.variables);
+      if (stale.length > 0) {
+        throw new ValidationError('The rental changed after this contract was prepared. Review it again before signing.', 'renderedHtml');
+      }
       if (refs.photoIds.length > 0) {
         const found = await tx.getAllAsync<{ id: string }>(
           `SELECT id FROM photo WHERE rental_id = ? AND phase = 'before' AND id IN (${placeholders(refs.photoIds.length)})`,
@@ -378,7 +395,10 @@ export interface ContractVerification {
   problems: string[];
 }
 
-/** "Verify contract": recomputes the content hash and re-hashes the signature file. */
+/**
+ * "Check contract": recomputes the content hash, re-hashes the signature file and every pick-up
+ * photo the contract shows.
+ */
 export function verifyContract(contractId: Id): Promise<ContractVerification> {
   return read(async (db) => {
     const row = requireRow(await db.getFirstAsync<ContractRow>(`${CONTRACT_SELECT} WHERE sc.id = ?`, [contractId]), 'Signed contract', contractId);
@@ -402,6 +422,17 @@ export function verifyContract(contractId: Id): Promise<ContractVerification> {
     const fileHash = await platform.files.sha256(row.signature_path);
     if (fileHash === null) problems.push('The signature image is missing.');
     else if (fileHash !== row.signature_sha256) problems.push('The signature image has changed.');
-    return { ok: problems.length === 0, problems };
+    // The pick-up photos the contract shows: frozen rows, so their stored hash is the reference.
+    const { photoIds } = contractHtmlReferences(row.rendered_html);
+    for (const photoId of photoIds) {
+      const photo = await db.getFirstAsync<{ file_path: string; sha256: string; angle_key: string }>(
+        'SELECT file_path, sha256, angle_key FROM photo WHERE id = ? AND rental_id = ?',
+        [photoId, row.rental_id],
+      );
+      const hash = photo ? await platform.files.sha256(photo.file_path) : null;
+      if (!photo || hash === null) problems.push('A photo shown in the contract is missing.');
+      else if (hash !== photo.sha256) problems.push('A photo shown in the contract has changed.');
+    }
+    return { ok: problems.length === 0, problems: [...new Set(problems)] };
   });
 }

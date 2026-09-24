@@ -21,7 +21,7 @@ import type { BackupCounts, RelPath } from '@/domain/types';
 
 import { checkIntegrity, getSchemaVersion, migrate, SCHEMA_VERSION } from '../migrations';
 import { pointerForRestore, type DataPointer } from '../pointer';
-import { getRecordCounts, listFileRefs } from '../repos/storage';
+import { getRecordCounts, insertBackupLog, listFileRefs } from '../repos/storage';
 import type { SqlExecutor } from '../sql';
 import { asBackupError, BackupError, cancelled, throwIfAborted } from './errors';
 import {
@@ -329,7 +329,7 @@ function rollbackPointer(deps: BackupDeps, before: DataPointer): DataPointer {
 
 /**
  * Makes the staged root live. Throws `switch_failed` when the old data had to be put back (the
- * error copy says nothing changed); on success the restore is logged in the new database.
+ * error copy says nothing changed). The restore is logged in the new database before the switch.
  */
 export async function commitRestoreWith(deps: BackupDeps, preview: RestorePreview): Promise<RestoreOutcome> {
   const { roots, live, env } = deps;
@@ -340,6 +340,28 @@ export async function commitRestoreWith(deps: BackupDeps, preview: RestorePrevie
   const liveName = live.liveRoot().name;
   if (!before || before.root !== liveName || before.root === preview.rootName) {
     throw new BackupError('failed', 'restore', 'The data pointer does not match the open data');
+  }
+
+  // Logged inside the restored database before it goes live: a crash right after the switch
+  // then still leaves "Last restore" correct. A rollback discards the staged root with it.
+  try {
+    const staged = await live.openDb(roots.rootLocation(preview.rootName).dbDir, { name: SNAPSHOT_FILE, pragmas: true });
+    try {
+      const at = env.now();
+      await insertBackupLog(staged, `restore-${at}-${preview.rootName}`, {
+        kind: 'restore',
+        at,
+        fileName: preview.fileName,
+        byteSize: preview.archiveBytes,
+        schemaVersion: preview.backup.schemaVersion,
+        backupCreatedAt: preview.backup.createdAt,
+        counts: preview.backup.counts,
+      });
+    } finally {
+      await staged.close();
+    }
+  } catch (e) {
+    console.warn('[restore] could not log the restore', e);
   }
 
   try {
@@ -369,19 +391,6 @@ export async function commitRestoreWith(deps: BackupDeps, preview: RestorePrevie
     throw switchFailed('The restored data failed its first check');
   }
 
-  try {
-    await live.recordLog({
-      kind: 'restore',
-      at: env.now(),
-      fileName: preview.fileName,
-      byteSize: preview.archiveBytes,
-      schemaVersion: preview.backup.schemaVersion,
-      backupCreatedAt: preview.backup.createdAt,
-      counts: preview.backup.counts,
-    });
-  } catch (e) {
-    console.warn('[restore] could not log the restore', e);
-  }
   try {
     deps.fs.remove(preview.stagingDir);
   } catch (e) {

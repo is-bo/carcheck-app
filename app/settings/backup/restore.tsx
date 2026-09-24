@@ -352,7 +352,9 @@ function PreviewDetails({ preview }: { preview: RestorePreview }) {
           Backup checked
         </Text>
         <Text variant="body" tone="secondary" style={styles.paragraph}>
-          Every photo and record in this file is complete and undamaged.
+          {knownProblems > 0
+            ? 'Every record in this file is complete. Some photos were already missing or damaged when it was made (see below).'
+            : 'Every photo and record in this file is complete and undamaged.'}
         </Text>
       </View>
 
@@ -372,7 +374,7 @@ function PreviewDetails({ preview }: { preview: RestorePreview }) {
       {knownProblems > 0 ? (
         <Banner
           icon={TriangleAlert}
-          message={`${plural(knownProblems, '{n} file was', '{n} files were')} already missing or damaged on the phone that made this backup.`}
+          message={`${plural(knownProblems, '{n} file was', '{n} files were')} already missing or damaged on the phone that made this backup. They stay missing after the restore.`}
         />
       ) : null}
     </>

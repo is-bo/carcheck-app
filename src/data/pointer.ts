@@ -98,6 +98,18 @@ export function chooseRootWithoutPointer(candidates: readonly RootCandidate[]): 
   return best?.name ?? null;
 }
 
+/**
+ * Pointer for a root chosen without a trustworthy pointer (lost current.json, root missing).
+ * The guess may be wrong (e.g. a restore-staging database written later than the real one),
+ * so the next most recent root is kept as the safety copy instead of being deleted.
+ */
+export function fallbackPointer(chosen: string, candidates: readonly RootCandidate[], now: number): DataPointer {
+  const runnerUp = chooseRootWithoutPointer(candidates.filter((c) => c.name !== chosen));
+  return runnerUp
+    ? { v: 1, root: chosen, previous: runnerUp, previousUntil: now + SAFETY_COPY_DAYS * 24 * 60 * 60 * 1000, verifyPending: false }
+    : newPointer(chosen);
+}
+
 /** data-* directories named by neither `root` nor `previous` (abandoned restore staging). */
 export function abandonedRoots(dirNames: readonly string[], pointer: DataPointer): string[] {
   return dirNames.filter((n) => isDataRootName(n) && n !== pointer.root && n !== pointer.previous);

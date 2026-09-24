@@ -3,6 +3,7 @@ import { damageLabel } from '@/domain/damage';
 
 import {
   addDamage,
+  addPhoto,
   completeReturn,
   confirmKnownDamage,
   createDraftRental,
@@ -152,5 +153,22 @@ describe('known damage carry-over', () => {
     const other = await createVehicle({ plate: 'ZZ-999-ZZ' });
     await setRentalVehicle(switching.id, other.id);
     expect(await listKnownDamage(first.vehicle.id)).toHaveLength(1);
+  });
+});
+
+describe('close-ups', () => {
+  it('only links a close-up taken at the same inspection as the mark', async () => {
+    const { rentalId } = await readyDraft(t);
+    const pickupCloseup = await addPhoto({ rentalId, phase: 'before', image: t.image('closeup-b'), angleKey: 'front', kind: 'damage_closeup' });
+    await sign(t, rentalId);
+    await startReturn(rentalId);
+    const after = await capture(t, rentalId, 'after');
+    await expect(
+      addDamage({ photoId: after.front.id, marker: ring(), closeupPhotoId: pickupCloseup.id }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    const mark = await addDamage({ photoId: after.front.id, marker: ring() });
+    await expect(
+      t.db.execAsync(`UPDATE damage SET closeup_photo_id = '${pickupCloseup.id}' WHERE id = '${mark.id}'`),
+    ).rejects.toThrow(/same rental, angle and phase/);
   });
 });

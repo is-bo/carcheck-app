@@ -43,6 +43,7 @@ import {
   abandonedRoots,
   chooseRootWithoutPointer,
   dataRootName,
+  fallbackPointer,
   isSafetyCopyExpired,
   newPointer,
   pointerForRollback,
@@ -142,15 +143,25 @@ function newRootName(): string {
   return dataRootName(Crypto.randomUUID().replace(/-/g, '').slice(0, 12));
 }
 
+function rootCandidates() {
+  return listDataRootNames().map((name) => ({ name, dbModifiedAt: dbFileModifiedAt(name, DB_FILE_NAME) }));
+}
+
 async function resolveRoot(report: BootReport): Promise<DataPointer> {
   let pointer = recoverDataPointer();
+  // A guessed root is never grounds for deleting the others (see fallbackPointer).
+  let guessed = false;
   if (!pointer) {
-    const adopt = chooseRootWithoutPointer(
-      listDataRootNames().map((name) => ({ name, dbModifiedAt: dbFileModifiedAt(name, DB_FILE_NAME) })),
-    );
-    if (adopt) report.adoptedRoot = true;
-    else report.createdRoot = true;
-    pointer = newPointer(adopt ?? newRootName());
+    const candidates = rootCandidates();
+    const adopt = chooseRootWithoutPointer(candidates);
+    if (adopt) {
+      report.adoptedRoot = true;
+      guessed = true;
+      pointer = fallbackPointer(adopt, candidates, Date.now());
+    } else {
+      report.createdRoot = true;
+      pointer = newPointer(newRootName());
+    }
     createDataRoot(pointer.root);
     writeDataPointer(pointer);
   }
@@ -166,15 +177,25 @@ async function resolveRoot(report: BootReport): Promise<DataPointer> {
       pointer = back;
       report.restore = 'rolled_back';
     } else {
-      // Nothing to fall back to: start empty rather than refuse to open.
-      pointer = newPointer(pointer.root);
-      report.createdRoot = !dataRootExists(pointer.root);
+      // Nothing to fall back to: adopt the most recent other root if there is one, else start
+      // empty rather than refuse to open.
+      const failed = pointer.root;
+      const candidates = rootCandidates().filter((c) => c.name !== failed);
+      const adopt = chooseRootWithoutPointer(candidates);
+      if (adopt) {
+        report.adoptedRoot = true;
+        guessed = true;
+        pointer = fallbackPointer(adopt, candidates, Date.now());
+      } else {
+        pointer = newPointer(pointer.root);
+        report.createdRoot = !dataRootExists(pointer.root);
+      }
     }
     createDataRoot(pointer.root);
     writeDataPointer(pointer);
   }
 
-  for (const name of abandonedRoots(listDataRootNames(), pointer)) {
+  for (const name of guessed ? [] : abandonedRoots(listDataRootNames(), pointer)) {
     try {
       deleteDataRoot(name);
       report.abandonedRootsDeleted += 1;

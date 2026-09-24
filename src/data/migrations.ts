@@ -591,6 +591,11 @@ const activeContractV2 = (rentalId: string) =>
   `EXISTS (SELECT 1 FROM signed_contract sc WHERE sc.rental_id = ${rentalId}` +
   ` AND NOT EXISTS (SELECT 1 FROM contract_void cv WHERE cv.contract_id = sc.id))`;
 
+/** damageInconsistent (v1) plus: the close-up's phase equals the mark's found_phase. */
+const damageInconsistentV2 = `(${damageInconsistent}
+  OR (NEW.closeup_photo_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM photo p WHERE p.id = NEW.closeup_photo_id
+      AND p.phase = NEW.found_phase)))`;
+
 const V2_TRIGGERS = `
 -- A return can only be completed on a rental with a valid (not voided) signed contract.
 DROP TRIGGER trg_rental_status_transition;
@@ -618,6 +623,14 @@ WHEN NEW.vehicle_id IS NOT OLD.vehicle_id AND (
   OR EXISTS (SELECT 1 FROM signed_contract WHERE rental_id = OLD.id)
   OR EXISTS (SELECT 1 FROM photo WHERE rental_id = OLD.id AND frozen_at IS NOT NULL))
 BEGIN ${raise(INVALID, 'the vehicle of a signed rental cannot change; cancel it and start a new rental')} END;
+
+-- A close-up must come from the same inspection (phase) as its mark.
+DROP TRIGGER trg_damage_insert_consistency;
+CREATE TRIGGER trg_damage_insert_consistency BEFORE INSERT ON damage WHEN ${damageInconsistentV2}
+BEGIN ${raise(INVALID, 'damage must reference photos of the same rental, angle and phase')} END;
+DROP TRIGGER trg_damage_update_consistency;
+CREATE TRIGGER trg_damage_update_consistency BEFORE UPDATE ON damage WHEN ${damageInconsistentV2}
+BEGIN ${raise(INVALID, 'damage must reference photos of the same rental, angle and phase')} END;
 
 -- "Repaired / gone" chosen in a draft only counts while that draft keeps the vehicle.
 CREATE TRIGGER trg_rental_vehicle_unresolve AFTER UPDATE OF vehicle_id ON rental

@@ -167,6 +167,15 @@ describe('signed evidence is immutable', () => {
     t.files.stored.set(contract.signature.path, 'forged');
     expect(await verifyContract(contract.id)).toEqual({ ok: false, problems: ['The signature image has changed.'] });
   });
+
+  it('detects a changed photo that the contract shows', async () => {
+    const { rentalId, before } = await readyDraft(t);
+    await addDamage({ photoId: before.front.id, marker: ring(), type: 'scratch' });
+    const contract = await sign(t, rentalId);
+    expect(await verifyContract(contract.id)).toEqual({ ok: true, problems: [] });
+    t.files.stored.set(before.front.file.path, 'swapped');
+    expect(await verifyContract(contract.id)).toEqual({ ok: false, problems: ['A photo shown in the contract has changed.'] });
+  });
 });
 
 describe('void and re-sign', () => {
@@ -220,5 +229,25 @@ describe('void and re-sign', () => {
     await expect(
       t.db.execAsync(`UPDATE rental SET status = 'returned' WHERE id = '${rentalId}'`),
     ).rejects.toThrow(/illegal rental status change/);
+  });
+
+  it('refuses to sign a contract prepared before the rental changed', async () => {
+    const { rentalId } = await readyDraft(t);
+    await updateRentalDetails(rentalId, { startMileage: 1000 });
+    const prep = await prepareContract(rentalId, { tzOffsetMin: 120 });
+    await updateRentalDetails(rentalId, { startMileage: 99999 });
+    await expect(
+      signContract({
+        rentalId,
+        templateId: prep.template.id,
+        renderedHtml: prep.render.html,
+        variables: prep.render.variables,
+        signerName: 'Jane Smith',
+        signature: t.files.addTemp('stale signature'),
+        tzOffsetMin: 120,
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    // Re-preparing (as the sign screen does on mount) signs fine, even minutes later.
+    expect((await sign(t, rentalId)).variables['rental.start_mileage']).toBeDefined();
   });
 });

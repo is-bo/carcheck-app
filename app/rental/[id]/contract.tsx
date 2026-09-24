@@ -1,10 +1,10 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { FileText, Lock, TriangleAlert } from 'lucide-react-native';
+import { FileText, Lock, ShieldCheck, TriangleAlert } from 'lucide-react-native';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { resolveFileUri } from '@/data/files';
-import { getRentalDetail, type DataEntity } from '@/data/repos';
+import { getRentalDetail, verifyContract, type DataEntity } from '@/data/repos';
 import { ContractView } from '@/features/contract/ContractView';
 import { shareContractPdf } from '@/features/contract/contractPdf';
 import { crossAgent, useLiveQuery } from '@/features/entities';
@@ -35,6 +35,7 @@ export default function ContractViewerRoute() {
   const { id, v } = useLocalSearchParams<{ id: string; v?: string }>();
   const query = useLiveQuery(() => getRentalDetail(id), WATCH);
   const [sharing, setSharing] = useState(false);
+  const [checking, setChecking] = useState(false);
   const detail = query.data;
 
   if (query.error && !detail) {
@@ -84,6 +85,19 @@ export default function ContractViewerRoute() {
     }
   }
 
+  // Recomputes the fingerprint and re-hashes the signature and the photos the contract shows.
+  async function check() {
+    setChecking(true);
+    try {
+      const result = await verifyContract(shown!.id);
+      showToast(result.ok ? 'Contract checked: unchanged since signing.' : result.problems.join(' '), { duration: 8000 });
+    } catch {
+      showToast('Couldn’t check the contract. Try again.');
+    } finally {
+      setChecking(false);
+    }
+  }
+
   const banner = shown.void
     ? `Voided ${formatDateTime(shown.void.voidedAt)}${shown.void.reason ? ` · ${shown.void.reason}` : ''}. Kept on record; it no longer applies.`
     : 'Signed contracts can’t be edited.';
@@ -95,8 +109,9 @@ export default function ContractViewerRoute() {
       leading="back"
       scroll
       footer={
-        <ActionFooter>
-          <Button label="Share PDF" variant="secondary" icon={FileText} loading={sharing} onPress={share} fullWidth />
+        <ActionFooter row>
+          <Button label="Check" variant="secondary" icon={ShieldCheck} loading={checking} onPress={check} />
+          <Button label="Share PDF" variant="secondary" icon={FileText} loading={sharing} onPress={share} style={styles.fill} />
         </ActionFooter>
       }
     >
@@ -135,6 +150,7 @@ export default function ContractViewerRoute() {
 }
 
 const styles = StyleSheet.create({
+  fill: { flex: 1 },
   banner: { paddingTop: 12 },
   meta: { paddingHorizontal: layout.screenGutter, paddingTop: 12 },
 });
