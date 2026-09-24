@@ -238,6 +238,16 @@ describe('prepareRestore', () => {
     expect((await expectBackupError(prepare(inconsistent), 'incomplete')).details).toEqual([ref.path]);
   });
 
+  it('refuses a backup whose signed contract carries markup CarCheck never writes', async () => {
+    // A hand-made archive is self-consistent; only the HTML itself gives it away.
+    await t.db.execAsync(
+      "DROP TRIGGER trg_contract_no_update; UPDATE signed_contract SET rendered_html = rendered_html || '<p onclick=\"x()\">Hi</p><script>fetch(1)</script>'",
+    );
+    const error = await expectBackupError(prepare((await backup()).uri), 'corrupted');
+    expect(error.details?.[0]).toMatch(/p\[onclick\], <script>/);
+    expect(dataRoots()).toEqual([INITIAL_ROOT]);
+  });
+
   it('refuses when the unpacked backup would not fit', async () => {
     const result = await backup();
     h.free.bytes = 100;
@@ -350,27 +360,29 @@ describe('commitRestore: pointer switch and rollback', () => {
 describe('restoring an older schema', () => {
   it('migrates the staged database forward before the confirm', async () => {
     const result = await backup();
+    const current = jest.requireActual<typeof import('../../migrations')>('../../migrations').SCHEMA_VERSION;
+    const next = current + 1;
     let restore: typeof import('../restore') | undefined;
     jest.isolateModules(() => {
       jest.doMock('../../migrations', () => {
         const actual = jest.requireActual<typeof import('../../migrations')>('../../migrations');
         return {
           ...actual,
-          SCHEMA_VERSION: 2,
+          SCHEMA_VERSION: next,
           migrate: async (db: Parameters<typeof actual.migrate>[0]) => {
             const from = await actual.getSchemaVersion(db);
             await actual.migrate(db);
-            if (from < 2) await db.execAsync('BEGIN; CREATE TABLE upgrade_probe (x INTEGER); PRAGMA user_version = 2; COMMIT;');
-            return { from, to: 2 };
+            if (from < next) await db.execAsync(`BEGIN; CREATE TABLE upgrade_probe (x INTEGER); PRAGMA user_version = ${next}; COMMIT;`);
+            return { from, to: next };
           },
         };
       });
       restore = jest.requireActual<typeof import('../restore')>('../restore');
     });
     const preview = await restore!.prepareRestoreWith(h.deps, { archive: pickCopy(h, result.uri), fileName: 'old.carcheck' });
-    expect(preview.upgradedFrom).toBe(1);
+    expect(preview.upgradedFrom).toBe(current);
     const db = await h.deps.live.openDb(h.location(preview.rootName).dbDir, { pragmas: false });
-    expect(await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version')).toEqual({ user_version: 2 });
+    expect(await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version')).toEqual({ user_version: next });
     await db.close();
     discardRestoreWith(h.deps, preview);
   });

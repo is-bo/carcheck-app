@@ -16,11 +16,13 @@
  *   new root and falls back to `previous` on its own; if booting throws, the old pointer is
  *   written back here and the old data reopened. The old root stays as the 14-day safety copy.
  */
+import { contractHtmlProblems } from '@/domain/contract';
 import type { BackupCounts, RelPath } from '@/domain/types';
 
 import { checkIntegrity, getSchemaVersion, migrate, SCHEMA_VERSION } from '../migrations';
 import { pointerForRestore, type DataPointer } from '../pointer';
 import { getRecordCounts, listFileRefs } from '../repos/storage';
+import type { SqlExecutor } from '../sql';
 import { asBackupError, BackupError, cancelled, throwIfAborted } from './errors';
 import {
   checkArchiveEntries,
@@ -92,6 +94,15 @@ function mapUnzipError(e: unknown): BackupError {
     }
   }
   return asBackupError(e, 'restore');
+}
+
+/** Signed contracts are printed in a WebView, so a backup may only carry HTML the renderer could have written. */
+async function unsafeContracts(db: SqlExecutor): Promise<string[]> {
+  const rows = await db.getAllAsync<{ id: string; rendered_html: string }>('SELECT id, rendered_html FROM signed_contract');
+  return rows.flatMap((r) => {
+    const problems = contractHtmlProblems(r.rendered_html);
+    return problems.length > 0 ? [`contract ${r.id}: ${problems.slice(0, 3).join(', ')}`] : [];
+  });
 }
 
 function notABackup(message: string, cause?: unknown): BackupError {
@@ -219,6 +230,10 @@ export async function prepareRestoreWith(
       if (!integrity.ok) throw new BackupError('corrupted', 'restore', 'Database integrity check failed', { details: integrity.problems });
       if (!countsEqual(await getRecordCounts(db), manifest.counts)) {
         throw new BackupError('corrupted', 'restore', 'Record counts differ from the manifest');
+      }
+      const unsafe = await unsafeContracts(db);
+      if (unsafe.length > 0) {
+        throw new BackupError('corrupted', 'restore', `${unsafe.length} signed contracts contain content CarCheck never writes`, { details: unsafe });
       }
       const unlisted = unlistedReferences(await listFileRefs(db), manifest);
       if (unlisted.length > 0) {

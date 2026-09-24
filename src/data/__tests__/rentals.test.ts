@@ -68,6 +68,27 @@ describe('vehicles', () => {
     expect(detail.history.map((h) => h.rental.id)).toEqual([rentalId]);
   });
 
+  it('asks what to do with pick-up photos when a draft changes car, and never changes a signed one', async () => {
+    const { rentalId, before } = await readyDraft(t);
+    const other = await createVehicle({ plate: 'KL-555-AA' });
+    await expect(setRentalVehicle(rentalId, other.id)).rejects.toMatchObject({ reason: 'has_photos' });
+    await setRentalVehicle(rentalId, other.id, { beforePhotos: 'keep' });
+    expect(await listPhotos(rentalId, { phase: 'before' })).toHaveLength(8);
+
+    const third = await createVehicle({ plate: 'MN-777-BB' });
+    await setRentalVehicle(rentalId, third.id, { beforePhotos: 'delete' });
+    expect(await listPhotos(rentalId, { phase: 'before' })).toEqual([]);
+    expect(t.files.stored.has(before.front.file.path)).toBe(false);
+    expect((await getRental(rentalId)).vehicle?.plate).toBe('MN-777-BB');
+
+    const signed = await signedRental(t, 'CC-3');
+    await voidContract(signed.contract.id);
+    await expect(setRentalVehicle(signed.rentalId, other.id, { beforePhotos: 'delete' })).rejects.toBeInstanceOf(InvalidStateError);
+    await expect(
+      t.db.execAsync(`UPDATE rental SET vehicle_id = '${other.id}' WHERE id = '${signed.rentalId}'`),
+    ).rejects.toThrow(/cannot change/);
+  });
+
   it('refreshes the snapshot of drafts only, never of signed rentals', async () => {
     const { vehicle, rentalId } = await signedRental(t);
     const other = await createVehicle({ plate: 'KL-555-AA' });

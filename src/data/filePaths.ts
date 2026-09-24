@@ -120,6 +120,23 @@ export function diffFileRefs(
   return { orphans, missing };
 }
 
+/** Orphans above this share of stored files mean the DB lost its rows, not that files leaked. */
+export const ORPHAN_SWEEP_MAX_SHARE = 0.2;
+/** Below this many orphans the share rule is not applied (a few leftovers from crashes are normal). */
+export const ORPHAN_SWEEP_SMALL_COUNT = 10;
+
+/**
+ * Deleting orphans is only safe when the DB clearly still describes the files root. An empty
+ * or replaced database (lost file, partial copy) would otherwise make every stored file an
+ * "orphan" and the sweep would erase all evidence.
+ */
+export function isOrphanSweepSafe(diff: FileRefDiff, storedCount: number, referencedCount: number): boolean {
+  if (diff.orphans.length === 0) return true;
+  if (referencedCount === 0) return false;
+  if (diff.orphans.length <= ORPHAN_SWEEP_SMALL_COUNT) return true;
+  return diff.orphans.length <= storedCount * ORPHAN_SWEEP_MAX_SHARE;
+}
+
 /** Temp entries (exports, capture, backup and restore staging) that housekeeping may delete. */
 export function isExpiredTempEntry(
   area: 'exports' | 'capture' | 'backup' | 'restore',

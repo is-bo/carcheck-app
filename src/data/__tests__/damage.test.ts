@@ -6,7 +6,9 @@ import {
   completeReturn,
   confirmKnownDamage,
   createDraftRental,
+  createVehicle,
   deleteDamage,
+  discardDraft,
   getDamage,
   listDamage,
   listKnownDamage,
@@ -126,5 +128,29 @@ describe('known damage carry-over', () => {
 
     await resolveKnownDamage(known[0].vehicleDamage.id, 'repaired', { rentalId: next.id });
     expect(await listKnownDamage(first.vehicle.id)).toEqual([]);
+  });
+
+  it('forgets a "Repaired / gone" chosen in a draft that is discarded or switches car', async () => {
+    const first = await readyDraft(t);
+    await addDamage({ photoId: first.before.front.id, marker: ring(0.3, 0.3), type: 'scratch' });
+    await sign(t, first.rentalId);
+    await startReturn(first.rentalId);
+    await capture(t, first.rentalId, 'after');
+    await completeReturn(first.rentalId);
+    const [known] = await listKnownDamage(first.vehicle.id);
+
+    const discarded = await createDraftRental();
+    await setRentalVehicle(discarded.id, first.vehicle.id);
+    await resolveKnownDamage(known.vehicleDamage.id, 'not_found', { rentalId: discarded.id });
+    expect(await listKnownDamage(first.vehicle.id)).toEqual([]);
+    await discardDraft(discarded.id);
+    expect(await listKnownDamage(first.vehicle.id)).toHaveLength(1);
+
+    const switching = await createDraftRental();
+    await setRentalVehicle(switching.id, first.vehicle.id);
+    await resolveKnownDamage(known.vehicleDamage.id, 'not_found', { rentalId: switching.id });
+    const other = await createVehicle({ plate: 'ZZ-999-ZZ' });
+    await setRentalVehicle(switching.id, other.id);
+    expect(await listKnownDamage(first.vehicle.id)).toHaveLength(1);
   });
 });

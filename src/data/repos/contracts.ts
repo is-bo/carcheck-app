@@ -4,6 +4,7 @@
  * values, the template version, the signature file and a SHA-256 content hash.
  */
 import {
+  contractHtmlProblems,
   contractHtmlReferences,
   renderContractTemplate,
   STARTER_TEMPLATE_BODY,
@@ -14,7 +15,7 @@ import {
   type RentalContext,
 } from '@/domain/contract';
 import { damageLabel } from '@/domain/damage';
-import { BLOCKER_MESSAGES, isStartFlowOpen, signBlockers, type Blocker } from '@/domain/rentalLifecycle';
+import { BLOCKER_MESSAGES, canVoidContract, isStartFlowOpen, signBlockers, type Blocker } from '@/domain/rentalLifecycle';
 import type {
   CapturedFile,
   ContractTemplate,
@@ -256,7 +257,8 @@ export async function signContract(input: SignContractInput): Promise<SignedCont
   const signerName = cleanText(input.signerName);
   if (!signerName) throw new ValidationError('The signer name is missing.', 'signerName');
   const refs = contractHtmlReferences(input.renderedHtml);
-  if (refs.invalid.length > 0) throw new ValidationError(`The contract references external content: ${refs.invalid[0]}`, 'renderedHtml');
+  const problems = contractHtmlProblems(input.renderedHtml);
+  if (problems.length > 0) throw new ValidationError(`The contract contains content it may not show: ${problems[0]}`, 'renderedHtml');
   if (input.renderedHtml.includes('[missing: ')) throw new ValidationError(BLOCKER_MESSAGES.unknown_variables, 'renderedHtml');
   const variablesJson = JSON.stringify(input.variables);
   const platform = getPlatform();
@@ -336,8 +338,9 @@ export function voidContract(contractId: Id, reason?: string | null): Promise<Si
   return write(['contract', 'rental'], async ({ tx, now }) => {
     const contract = await loadContract(tx, contractId);
     if (contract.void) throw new ConflictError('already_voided', 'This contract is already void.');
-    const rental = await loadRental(tx, contract.rentalId);
-    if (rental.status !== 'active') throw new InvalidStateError('Only the contract of a rental that is out can be voided.');
+    const { facts } = await loadRentalFacts(tx, contract.rentalId);
+    if (facts.status !== 'active') throw new InvalidStateError('Only the contract of a rental that is out can be voided.');
+    if (!canVoidContract(facts)) throw new InvalidStateError('The return has started, so the pick-up contract can no longer be voided.');
     await tx.runAsync('INSERT INTO contract_void (contract_id, voided_at, reason, created_at) VALUES (?, ?, ?, ?)', [
       contractId,
       now,

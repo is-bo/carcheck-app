@@ -3,6 +3,7 @@ import {
   documentPath,
   exportFileName,
   isExpiredTempEntry,
+  isOrphanSweepSafe,
   isValidRelPath,
   logoPath,
   photoPath,
@@ -88,6 +89,17 @@ describe('file paths', () => {
     );
     expect(diff.orphans.map((o) => o.path)).toEqual(['photos/r/b.jpg']);
     expect(diff.missing).toEqual(['photos/r/gone.jpg']);
+  });
+
+  it('never sweeps when the database no longer describes the files root', () => {
+    const orphans = (n: number) => ({ orphans: Array.from({ length: n }, (_, i) => ({ path: `photos/r/${i}.jpg`, size: 1, modifiedAt: 0 })), missing: [] });
+    expect(isOrphanSweepSafe(orphans(0), 100, 0)).toBe(true);
+    // Empty or replaced DB: every file looks unreferenced.
+    expect(isOrphanSweepSafe(orphans(3), 3, 0)).toBe(false);
+    expect(isOrphanSweepSafe(orphans(90), 100, 10)).toBe(false);
+    // A few crash leftovers are normal.
+    expect(isOrphanSweepSafe(orphans(8), 20, 12)).toBe(true);
+    expect(isOrphanSweepSafe(orphans(15), 100, 85)).toBe(true);
   });
 
   it('keeps share copies for 24 h and other temp files for 1 h', () => {

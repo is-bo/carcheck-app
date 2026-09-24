@@ -75,7 +75,8 @@ export type ConflictReason =
   | 'photo_exists'
   | 'already_voided'
   | 'duplicate'
-  | 'has_damage';
+  | 'has_damage'
+  | 'has_photos';
 
 export class ConflictError extends DataError {
   readonly reason: ConflictReason;

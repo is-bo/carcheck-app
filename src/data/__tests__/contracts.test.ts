@@ -4,6 +4,7 @@ import { contractHashPreimage } from '@/domain/types';
 
 import {
   addDamage,
+  completeReturn,
   getActiveTemplate,
   getRental,
   ImmutableError,
@@ -19,6 +20,7 @@ import {
   saveTemplateVersion,
   setRentalCustomer,
   signContract,
+  startReturn,
   updateAgencySettings,
   updateRentalDetails,
   verifyContract,
@@ -26,7 +28,7 @@ import {
   ValidationError,
   ConflictError,
 } from '../repos';
-import { readyDraft, ring, sign, signedRental, snapshot } from './support/scenario';
+import { capture, readyDraft, ring, sign, signedRental, snapshot } from './support/scenario';
 import { setupTestData, sha256Hex, type TestData } from './support/testData';
 
 let t: TestData;
@@ -198,5 +200,25 @@ describe('void and re-sign', () => {
     ]);
     // The first contract still shows exactly what was signed.
     expect(all[0].renderedHtml).toBe(contract.renderedHtml);
+  });
+
+  it('refuses a void once the return has started, and never returns an unsigned rental', async () => {
+    const { rentalId, contract } = await signedRental(t);
+    await voidContract(contract.id);
+    await expect(startReturn(rentalId)).rejects.toBeInstanceOf(InvalidStateError);
+
+    const second = await sign(t, rentalId);
+    await startReturn(rentalId);
+    await expect(voidContract(second.id)).rejects.toBeInstanceOf(InvalidStateError);
+    await capture(t, rentalId, 'after');
+    expect((await completeReturn(rentalId)).status).toBe('returned');
+  });
+
+  it('keeps the database from closing a rental whose only contract is voided', async () => {
+    const { rentalId, contract } = await signedRental(t);
+    await voidContract(contract.id);
+    await expect(
+      t.db.execAsync(`UPDATE rental SET status = 'returned' WHERE id = '${rentalId}'`),
+    ).rejects.toThrow(/illegal rental status change/);
   });
 });

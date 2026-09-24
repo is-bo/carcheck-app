@@ -4,6 +4,7 @@ import {
   CONNECTION_PRAGMAS,
   getSchemaVersion,
   migrate,
+  MIGRATIONS,
   MigrationError,
   SCHEMA_VERSION,
   SchemaTooNewError,
@@ -79,6 +80,27 @@ describe('migrations', () => {
     await expect(insert('vehicles/v1/f1.jpg')).resolves.toBeDefined();
     const refs = await db.getAllAsync<{ owner: string; path: string }>('SELECT owner, path FROM v_file_ref');
     expect(refs).toEqual([{ owner: 'vehicle_photo', path: 'vehicles/v1/f1.jpg' }]);
+    await db.close();
+  });
+
+  it('v2 clears repairs left behind by discarded or re-targeted drafts, and keeps real ones', async () => {
+    const db = await freshDb();
+    await db.execAsync(`BEGIN; ${MIGRATIONS[0].sql}; PRAGMA user_version = 1; COMMIT;`);
+    await db.execAsync(`
+      INSERT INTO vehicle (id, plate, created_at, updated_at) VALUES ('va', 'A', 0, 0), ('vb', 'B', 0, 0);
+      INSERT INTO rental (id, status, vehicle_id, veh_plate, distance_unit, created_at, updated_at) VALUES ('r1', 'draft', 'vb', 'B', 'km', 0, 0);
+      INSERT INTO vehicle_damage (id, vehicle_id, resolved_at, resolution, resolved_rental_id, created_at, updated_at) VALUES
+        ('discarded', 'va', 5, 'not_found', NULL, 0, 0),
+        ('switched',  'va', 5, 'not_found', 'r1', 0, 0),
+        ('repaired',  'va', 5, 'repaired',  NULL, 0, 0);
+    `);
+    expect(await migrate(db)).toEqual({ from: 1, to: SCHEMA_VERSION });
+    const rows = await db.getAllAsync<{ id: string; resolution: string | null }>('SELECT id, resolution FROM vehicle_damage ORDER BY id');
+    expect(rows).toEqual([
+      { id: 'discarded', resolution: null },
+      { id: 'repaired', resolution: 'repaired' },
+      { id: 'switched', resolution: null },
+    ]);
     await db.close();
   });
 });

@@ -256,3 +256,43 @@ export function contractHtmlReferences(html: string): { photoIds: string[]; sign
   if (/url\s*\(/i.test(html)) invalid.push('css url()');
   return { photoIds: [...photoIds], signature, invalid };
 }
+
+/** Every tag and attribute the renderer can emit (templates, damage list, signature blocks). */
+const SAFE_TAGS = new Set([
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'br', 'strong', 'ul', 'ol', 'li', 'img',
+  'svg', 'image', 'circle', 'rect', 'text',
+]);
+const SAFE_ATTRS = new Set([
+  'style', 'xmlns', 'viewbox', 'role', 'aria-label', 'href', 'src', 'alt', 'x', 'y', 'width', 'height',
+  'preserveaspectratio', 'cx', 'cy', 'r', 'fill', 'stroke', 'stroke-width', 'text-anchor', 'font-family',
+  'font-weight', 'font-size',
+]);
+const TAG_RE = /<(\/?)([a-zA-Z][a-zA-Z0-9-]*)([^>]*)>|<!--|<!|<\?/g;
+const ATTR_RE = /([^\s=/>"']+)(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>"']+))?/g;
+
+/**
+ * Everything wrong with frozen contract HTML: references outside carcheck-photo / signature,
+ * and any tag or attribute the renderer never produces (script, iframe, on* handlers…). Run at
+ * signing and again on restore, because a backup file can carry hand-made HTML that is later
+ * printed in a WebView.
+ */
+export function contractHtmlProblems(html: string): string[] {
+  const problems = [...contractHtmlReferences(html).invalid];
+  for (const m of html.matchAll(TAG_RE)) {
+    const [whole, , rawTag, rawAttrs] = m;
+    if (rawTag === undefined) {
+      problems.push(`markup ${whole}`);
+      continue;
+    }
+    const tag = rawTag.toLowerCase();
+    if (!SAFE_TAGS.has(tag)) {
+      problems.push(`<${tag}>`);
+      continue;
+    }
+    for (const a of (rawAttrs ?? '').matchAll(ATTR_RE)) {
+      const name = a[1].toLowerCase();
+      if (!SAFE_ATTRS.has(name)) problems.push(`${tag}[${name}]`);
+    }
+  }
+  return [...new Set(problems)];
+}

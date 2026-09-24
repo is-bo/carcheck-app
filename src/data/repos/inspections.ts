@@ -30,6 +30,7 @@ import { compactDamageSequence } from './damage';
 import { assertPhaseEditable, isPhaseEditable } from './guards';
 import {
   cleanText,
+  deletePhotoFilesLater,
   mapInspection,
   mapInspectionAngle,
   mapPhoto,
@@ -92,17 +93,6 @@ async function assertAngle(db: SqlExecutor, key: string): Promise<AngleRow> {
 async function nextCaptureOrder(tx: SqlExecutor, inspectionId: Id): Promise<number> {
   const row = await tx.getFirstAsync<{ n: number | null }>('SELECT max(capture_order) AS n FROM photo WHERE inspection_id = ?', [inspectionId]);
   return (row?.n ?? 0) + 1;
-}
-
-function deletePhotoFilesLater(scope: WriteScope, photos: readonly { id: string; file_path: string }[]): void {
-  if (photos.length === 0) return;
-  scope.afterCommit(async () => {
-    const files = getPlatform().files;
-    for (const p of photos) {
-      await files.deleteFile(p.file_path);
-      await files.deletePhotoDerivatives(p.id);
-    }
-  });
 }
 
 /** Idempotent: returns the existing inspection, or opens one while its phase is editable. */

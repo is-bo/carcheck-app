@@ -37,6 +37,7 @@ import {
   writeDataPointer,
   type DataRootLocation,
 } from './files';
+import { isOrphanSweepSafe } from './filePaths';
 import { CONNECTION_PRAGMAS, DB_FILE_NAME, getSchemaVersion, migrate, SCHEMA_VERSION } from './migrations';
 import {
   abandonedRoots,
@@ -273,21 +274,31 @@ export function snapshotLiveDatabase(targetPath: string): Promise<void> {
 export interface HousekeepingReport {
   tempDeleted: number;
   orphansDeleted: number;
+  /** Orphans were found but not deleted because the DB looks empty or replaced (see isOrphanSweepSafe). */
+  orphanSweepSkipped: boolean;
   /** Referenced by the DB but absent on disk: reported, never auto-deleted. */
   missingFiles: RelPath[];
   derivedDeleted: number;
   safetyCopyExpired: boolean;
 }
 
-/** Deletes unreferenced files older than 1 h under the files root and stale photo caches. */
-export async function sweepOrphans(): Promise<{ deleted: number; missing: RelPath[]; derivedDeleted: number }> {
+/**
+ * Deletes unreferenced files older than 1 h under the files root and stale photo caches.
+ * Refuses to delete anything when the DB no longer seems to describe the files root.
+ */
+export async function sweepOrphans(): Promise<{ deleted: number; skipped: boolean; missing: RelPath[]; derivedDeleted: number }> {
   const db = getDb();
   const refs = await listFileRefs(db);
-  const { orphans, missing } = findOrphanFiles(refs.map((r) => r.path));
-  const deleted = deleteStoredFiles(orphans.map((o) => o.path));
+  const diff = findOrphanFiles(refs.map((r) => r.path));
+  const safe = isOrphanSweepSafe(diff, diff.storedCount, refs.length);
+  if (!safe) {
+    console.warn('[data] orphan sweep skipped:', diff.orphans.length, 'unreferenced of', diff.storedCount, 'stored files');
+    return { deleted: 0, skipped: true, missing: diff.missing, derivedDeleted: 0 };
+  }
+  const deleted = deleteStoredFiles(diff.orphans.map((o) => o.path));
   const photoIds = await db.getAllAsync<{ id: string }>('SELECT id FROM photo');
   const derivedDeleted = sweepDerivedCaches(new Set(photoIds.map((p) => p.id)));
-  return { deleted, missing, derivedDeleted };
+  return { deleted, skipped: false, missing: diff.missing, derivedDeleted };
 }
 
 export async function runHousekeeping(): Promise<HousekeepingReport> {
@@ -305,6 +316,7 @@ export async function runHousekeeping(): Promise<HousekeepingReport> {
   return {
     tempDeleted,
     orphansDeleted: sweep.deleted,
+    orphanSweepSkipped: sweep.skipped,
     missingFiles: sweep.missing,
     derivedDeleted: sweep.derivedDeleted,
     safetyCopyExpired,

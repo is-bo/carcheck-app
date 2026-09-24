@@ -89,6 +89,18 @@ export async function withImportedFile<T>(sourceUri: string, relPath: RelPath, r
   return result;
 }
 
+/** Photo originals and their cached thumbnails/display copies, after commit. */
+export function deletePhotoFilesLater(scope: WriteScope, photos: readonly { id: string; file_path: string }[]): void {
+  if (photos.length === 0) return;
+  scope.afterCommit(async () => {
+    const files = getPlatform().files;
+    for (const p of photos) {
+      await files.deleteFile(p.file_path);
+      await files.deletePhotoDerivatives(p.id);
+    }
+  });
+}
+
 export function deleteFilesLater(scope: WriteScope, paths: readonly (RelPath | null | undefined)[]): void {
   const list = paths.filter((p): p is RelPath => !!p);
   if (list.length === 0) return;

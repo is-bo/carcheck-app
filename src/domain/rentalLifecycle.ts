@@ -115,7 +115,8 @@ export type Blocker =
   | 'angles_missing'
   | 'agency_name_missing'
   | 'unknown_variables'
-  | 'no_return_photo';
+  | 'no_return_photo'
+  | 'needs_signature';
 
 export const BLOCKER_MESSAGES: Record<Blocker, string> = {
   wrong_status: 'This step is not available for this rental any more.',
@@ -126,6 +127,7 @@ export const BLOCKER_MESSAGES: Record<Blocker, string> = {
   agency_name_missing: 'Add your agency name in Settings.',
   unknown_variables: 'The contract template has unknown fields. Fix the template first.',
   no_return_photo: 'Take at least one outside photo at return.',
+  needs_signature: 'The contract was voided. Have the customer sign again first.',
 };
 
 /** The start flow (steps 1-5) is open for drafts and for re-signing after a void. */
@@ -180,9 +182,11 @@ export type ReturnAction = 'start' | 'complete' | 'reopen';
 export function returnBlockers(action: ReturnAction, facts: RentalFacts): Blocker[] {
   switch (action) {
     case 'start':
-      return facts.status === 'active' ? [] : ['wrong_status'];
+      if (facts.status !== 'active') return ['wrong_status'];
+      return facts.hasValidContract ? [] : ['needs_signature'];
     case 'complete': {
       if (!isAfterEditable(facts.status, facts.returnReopenedAt)) return ['wrong_status'];
+      if (!facts.hasValidContract) return ['needs_signature'];
       return inspectionProgress(facts.after).hasExteriorPhoto ? [] : ['no_return_photo'];
     }
     case 'reopen':
@@ -190,8 +194,17 @@ export function returnBlockers(action: ReturnAction, facts: RentalFacts): Blocke
   }
 }
 
+/** Void & re-sign is for fixing the pick-up; once the return has started the car is back. */
 export function canVoidContract(facts: RentalFacts): boolean {
-  return facts.status === 'active' && facts.hasValidContract;
+  return facts.status === 'active' && facts.hasValidContract && facts.after === null;
+}
+
+/**
+ * The vehicle can change only before anything was signed: a signed (even voided) rental has
+ * frozen pick-up photos of that car. A physical swap is cancel + new rental.
+ */
+export function canChangeVehicle(facts: RentalFacts): boolean {
+  return facts.status === 'draft' && facts.contractCount === 0;
 }
 
 /** "For when the car never left": only an active rental can be cancelled. */

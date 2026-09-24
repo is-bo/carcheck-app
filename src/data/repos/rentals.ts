@@ -4,6 +4,7 @@
  */
 import {
   canCancel,
+  canChangeVehicle,
   canDiscardDraft,
   homeSection,
   isStartFlowOpen,
@@ -32,6 +33,7 @@ import { LOCK_MESSAGES } from './guards';
 import {
   cleanText,
   CONTRACT_SELECT,
+  deletePhotoFilesLater,
   mapArtifact,
   mapContract,
   mapCustomerDocument,
@@ -254,9 +256,21 @@ export function createDraftRental(): Promise<Rental> {
   });
 }
 
-/** Chooses the vehicle and copies its snapshot. Refused while it is out on another rental. */
-export function setRentalVehicle(rentalId: Id, vehicleId: Id): Promise<Rental> {
-  return write(['rental'], async ({ tx, now }) => {
+export interface SetRentalVehicleOptions {
+  /**
+   * Required when the draft already has pick-up photos of another vehicle. 'keep': same car,
+   * the wrong record was picked. 'delete': different car; its photos, skips and marks go.
+   */
+  beforePhotos?: 'keep' | 'delete';
+}
+
+/**
+ * Chooses the vehicle and copies its snapshot. Refused while it is out on another rental, and
+ * once anything was signed (a car swap is cancel + new rental).
+ */
+export function setRentalVehicle(rentalId: Id, vehicleId: Id, options: SetRentalVehicleOptions = {}): Promise<Rental> {
+  return write(['rental', 'photo', 'damage', 'inspection'], async (scope) => {
+    const { tx, now } = scope;
     const { row, facts } = await loadRentalFacts(tx, rentalId);
     assertStartFlowOpen(facts);
     const vehicle = mapVehicle(
@@ -268,8 +282,34 @@ export function setRentalVehicle(rentalId: Id, vehicleId: Id): Promise<Rental> {
       rentalId,
     ]);
     if (out) throw new ConflictError('vehicle_out', 'This vehicle is out on another rental.');
-    if (row.vehicle_id !== vehicleId && row.x_existing + row.x_new + row.x_uncertain > 0) {
-      throw new InvalidStateError('Remove the damage marks of this rental before changing its vehicle.');
+    const switching = row.vehicle_id !== null && row.vehicle_id !== vehicleId;
+    if (switching) {
+      if (!canChangeVehicle(facts)) {
+        throw new InvalidStateError('The vehicle of a signed rental can’t change. Cancel this rental and start a new one for the other car.');
+      }
+      const photos = await tx.getAllAsync<{ id: string; file_path: string }>(
+        "SELECT id, file_path FROM photo WHERE rental_id = ? AND phase = 'before'",
+        [rentalId],
+      );
+      const skips = await tx.getFirstAsync<{ n: number }>(
+        "SELECT count(*) AS n FROM inspection_angle ia JOIN inspection i ON i.id = ia.inspection_id WHERE i.rental_id = ? AND i.phase = 'before'",
+        [rentalId],
+      );
+      const hasEvidence = photos.length > 0 || (skips?.n ?? 0) > 0;
+      if (hasEvidence && options.beforePhotos === undefined) {
+        throw new ConflictError('has_photos', 'This rental already has pick-up photos of the other vehicle.');
+      }
+      if (options.beforePhotos === 'delete') {
+        await tx.runAsync('DELETE FROM damage WHERE rental_id = ?', [rentalId]);
+        await tx.runAsync("DELETE FROM photo WHERE rental_id = ? AND phase = 'before'", [rentalId]);
+        await tx.runAsync(
+          "DELETE FROM inspection_angle WHERE inspection_id IN (SELECT id FROM inspection WHERE rental_id = ? AND phase = 'before')",
+          [rentalId],
+        );
+        deletePhotoFilesLater(scope, photos);
+      } else if (row.x_existing + row.x_new + row.x_uncertain > 0) {
+        throw new InvalidStateError('Remove the damage marks of this rental before changing its vehicle.');
+      }
     }
     await tx.runAsync(
       'UPDATE rental SET vehicle_id = ?, veh_plate = ?, veh_make = ?, veh_model = ?, veh_year = ?, veh_color = ?, veh_vin = ?, ' +

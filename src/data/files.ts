@@ -57,6 +57,12 @@ export const FILES_DIR = 'files';
 
 export type TempArea = 'capture' | 'exports' | 'backup' | 'restore';
 const TEMP_AREAS: readonly TempArea[] = ['capture', 'exports', 'backup', 'restore'];
+/**
+ * Cache folders written by native modules, outside our own temp areas: expo-camera shots,
+ * image-picker copies and image-manipulator outputs. Normally consumed at once; a failed
+ * capture or import can leave full-size (possibly ID document) photos behind.
+ */
+const LIBRARY_TEMP_DIRS = ['Camera', 'ImagePicker', 'ImageManipulator'] as const;
 type DerivedArea = 'thumbs' | 'display';
 
 /** file:///a%20b/c -> /a b/c (SQLite and VACUUM INTO need plain filesystem paths). */
@@ -249,11 +255,12 @@ function entryModifiedAt(entry: File | Directory): number | null {
   return entry.info().modificationTime ?? null;
 }
 
-/** Deletes temp entries past their age (exports 24 h, other temp 1 h). Returns the count. */
+/** Deletes temp entries past their age (exports 24 h, other temp and native-module caches 1 h). Returns the count. */
 export function cleanupTempFiles(now: number = Date.now()): number {
   let deleted = 0;
-  for (const area of TEMP_AREAS) {
-    const dir = new Directory(Paths.cache, area);
+  const areas = [...TEMP_AREAS.map((area) => ({ dir: area, area })), ...LIBRARY_TEMP_DIRS.map((dir) => ({ dir, area: 'capture' as const }))];
+  for (const { dir: name, area } of areas) {
+    const dir = new Directory(Paths.cache, name);
     if (!dir.exists) continue;
     for (const entry of dir.list()) {
       if (!isExpiredTempEntry(area, entryModifiedAt(entry), now)) continue;
@@ -284,8 +291,12 @@ export function listStoredFiles(): StoredFileEntry[] {
 }
 
 /** Orphans (on disk, not referenced, older than 1 h) and missing files (referenced, absent). */
-export function findOrphanFiles(referenced: Iterable<RelPath>, now: number = Date.now()): FileRefDiff {
-  return diffFileRefs(listStoredFiles(), referenced, now);
+export function findOrphanFiles(
+  referenced: Iterable<RelPath>,
+  now: number = Date.now(),
+): FileRefDiff & { storedCount: number } {
+  const stored = listStoredFiles();
+  return { ...diffFileRefs(stored, referenced, now), storedCount: stored.length };
 }
 
 export function deleteStoredFiles(paths: readonly RelPath[]): number {
