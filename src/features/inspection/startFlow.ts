@@ -82,6 +82,9 @@ export function annotateHref(rentalId: Id, photoId: Id): Href {
   return `/rental/${rentalId}/annotate/${photoId}` as Href;
 }
 
+/** Root-stack route name of app/rental/[id]/index.tsx (to recognise it under a flow). */
+export const RENTAL_DETAIL_ROUTE = 'rental/[id]/index';
+
 export function rentalHref(rentalId: Id): Href {
   return `/rental/${rentalId}` as Href;
 }

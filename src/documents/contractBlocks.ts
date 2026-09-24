@@ -14,9 +14,18 @@ export interface TextSpan {
   italic?: true;
 }
 
+/** A lettered ring as frozen in the contract's SVG (normalized like DamageMarker rings). */
+export interface ContractPhotoMark {
+  label: string;
+  ring: { x: number; y: number; r: number };
+}
+
 export type ContractImageSource =
-  /** `annotated` = the photo was drawn inside an SVG with damage markers. */
-  | { kind: 'photo'; photoId: string; annotated: boolean }
+  /**
+   * `annotated` = the photo was drawn inside an SVG with damage markers; `marks` and `size` are
+   * read back from that SVG, so a signed contract shows exactly the rings it was signed with.
+   */
+  | { kind: 'photo'; photoId: string; annotated: boolean; marks?: ContractPhotoMark[]; size?: { width: number; height: number } }
   | { kind: 'data'; uri: string };
 
 export interface ContractListItem {
@@ -72,6 +81,41 @@ function mediaFromImg(el: HtmlElement): Media | null {
   return null;
 }
 
+function textOf(node: HtmlNode): string {
+  return node.type === 'text' ? node.text : node.children.map(textOf).join('');
+}
+
+/**
+ * Rings (circle pairs: halo + ink share cx/cy/r) and badge letters (<text>) in drawing order,
+ * normalized against the viewBox. Returns [] when the SVG is not one the renderer wrote.
+ */
+function svgMarks(el: HtmlElement, width: number, height: number): ContractPhotoMark[] {
+  const rings: { x: number; y: number; r: number }[] = [];
+  const labels: string[] = [];
+  const seen = new Set<string>();
+  const short = Math.min(width, height);
+  const walk = (nodes: HtmlNode[]) => {
+    for (const node of nodes) {
+      if (node.type !== 'element') continue;
+      if (node.name === 'circle') {
+        const [cx, cy, r] = [node.attrs.cx, node.attrs.cy, node.attrs.r].map(Number);
+        const key = `${cx},${cy},${r}`;
+        if ([cx, cy, r].every(Number.isFinite) && !seen.has(key)) {
+          seen.add(key);
+          rings.push({ x: cx / width, y: cy / height, r: r / short });
+        }
+      } else if (node.name === 'text') {
+        labels.push(textOf(node).trim());
+      } else {
+        walk(node.children);
+      }
+    }
+  };
+  walk(el.children);
+  if (rings.length !== labels.length) return [];
+  return rings.map((ring, i) => ({ label: labels[i], ring }));
+}
+
 /** An inline SVG counts as a photo only if it draws a contract photo (thumbnail + markers). */
 function mediaFromSvg(el: HtmlElement): Media | null {
   const stack: HtmlNode[] = [...el.children];
@@ -83,7 +127,15 @@ function mediaFromSvg(el: HtmlElement): Media | null {
       if (href === SIGNATURE_TOKEN) return { type: 'signature' };
       if (href.startsWith(PHOTO_TOKEN_PREFIX)) {
         const alt = el.attrs['aria-label'] ?? '';
-        return { type: 'image', alt, source: { kind: 'photo', photoId: href.slice(PHOTO_TOKEN_PREFIX.length), annotated: true } };
+        const box = (el.attrs.viewbox ?? '').trim().split(/[\s,]+/).map(Number);
+        const valid = box.length === 4 && box.every(Number.isFinite) && box[2] > 0 && box[3] > 0;
+        const size = valid ? { width: box[2], height: box[3] } : undefined;
+        const source: ContractImageSource = { kind: 'photo', photoId: href.slice(PHOTO_TOKEN_PREFIX.length), annotated: true };
+        if (size) {
+          source.size = size;
+          source.marks = svgMarks(el, size.width, size.height);
+        }
+        return { type: 'image', alt, source };
       }
     }
     stack.push(...node.children);

@@ -3,11 +3,10 @@
  * way of handing them over (share one image, share all, share or print the report, share the
  * signed contract). Everything leaves the app as a staged copy (ARCHITECTURE §6).
  */
-import { Directory, File, Paths } from 'expo-file-system';
+import { Directory, Paths } from 'expo-file-system';
 
-import { newTempFileUri, resolveFileUri, sha256OfUri, storedFileExists } from '@/data/files';
+import { resolveFileUri, storedFileExists } from '@/data/files';
 import {
-  getAgencySettings,
   getAnglePairs,
   getArtifact,
   getRental,
@@ -15,22 +14,18 @@ import {
   listArtifacts,
   listContracts,
   listDamage,
-  listPhotos,
-  saveArtifact,
 } from '@/data/repos';
 import type { AnglePair, Damage, GeneratedArtifact, Id, PairKey, Rental } from '@/domain/types';
 import {
-  buildContractPdfHtml,
-  createContractResolver,
   exportFileName,
   MultiShareUnavailableError,
   printPdf,
-  renderPdf,
   shareFile,
   shareFiles,
   type ShareItem,
 } from '@/documents';
 
+import { shareContractPdf } from '../contract/contractPdf';
 import { generateEvidence, type EvidenceImage } from '../evidence/generateEvidence';
 import { planEvidence } from '../evidence/evidencePlan';
 import { pairId } from '../evidence/returnPlan';
@@ -161,44 +156,12 @@ export async function printReport(report: GeneratedArtifact): Promise<void> {
 }
 
 /**
- * The valid signed contract as a PDF: the stored one when present (rendered at signing), else
- * rendered now from the frozen contract and stored for next time.
+ * The valid signed contract as a PDF (else the latest, voided, one), through the one renderer
+ * that knows its staleness key and prints the VOID mark (ensureContractPdf).
  */
 export async function shareSignedContract(rentalId: Id): Promise<void> {
   const all = await listContracts(rentalId);
   const contract = (await getValidContract(rentalId)) ?? all[all.length - 1] ?? null;
   if (!contract) throw new Error('This rental has no signed contract.');
-  const rental = await getRental(rentalId);
-  const target = { kind: 'contract_pdf' as const, contractId: contract.id };
-  let artifact = await getArtifact(rentalId, target);
-  if (!artifact || !fileOk(artifact)) {
-    const [agency, beforePhotos] = await Promise.all([getAgencySettings(), listPhotos(rentalId, { phase: 'before' })]);
-    const byId = new Map(beforePhotos.map((p) => [p.id, p]));
-    const html = await buildContractPdfHtml(
-      { ...contract, reference: rental.reference ?? '', agencyName: agency.name },
-      createContractResolver({
-        photoFile: (id) => {
-          const p = byId.get(id);
-          return p ? { uri: resolveFileUri(p.file.path), width: p.file.width, height: p.file.height } : null;
-        },
-        signatureUri: storedFileExists(contract.signature.path) ? resolveFileUri(contract.signature.path) : null,
-      }),
-    );
-    const pdf = await renderPdf(html, newTempFileUri('exports', 'pdf'));
-    artifact = await saveArtifact(
-      rentalId,
-      target,
-      { tempUri: pdf.uri, byteSize: new File(pdf.uri).size, sha256: await sha256OfUri(pdf.uri), pageCount: pdf.pageCount },
-      { mimeType: 'application/pdf', sourceFingerprint: contract.contentSha256 },
-    );
-  }
-  await shareFile(
-    {
-      uri: resolveFileUri(artifact.file.path),
-      fileName: exportFileName({ reference: rental.reference, kind: 'contract', sequence: contract.sequence, extension: 'pdf' }),
-      mimeType: 'application/pdf',
-      kind: 'contract',
-    },
-    { stagingDir: stagingDir(), title: 'Signed contract' },
-  );
+  await shareContractPdf(contract.id);
 }

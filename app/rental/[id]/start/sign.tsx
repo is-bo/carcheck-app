@@ -13,7 +13,6 @@ import { ContractView } from '@/features/contract/ContractView';
 import { agencyMonogram, signingRecap, thankYouTitle } from '@/features/contract/handOff';
 import { usePreparedContract } from '@/features/contract/usePreparedContract';
 import { useExitStartFlow, useResumePoint } from '@/features/inspection/StartFlowScreen';
-import { rentalHref } from '@/features/inspection/startFlow';
 import { SignaturePad, type SignaturePadHandle } from '@/media/signature';
 import {
   ActionFooter,
@@ -178,7 +177,7 @@ export default function SignStep() {
 /** Leaves the finished flow for the rental's detail screen. */
 function useDone(rentalId: string) {
   const exit = useExitStartFlow();
-  return useCallback(() => exit({ toast: null, to: rentalHref(rentalId) }), [exit, rentalId]);
+  return useCallback(() => exit({ toast: null, toRental: rentalId }), [exit, rentalId]);
 }
 
 // ---------------------------------------------------------------------------------------------

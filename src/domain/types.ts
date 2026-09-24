@@ -532,6 +532,11 @@ export interface VehicleListItem {
   lastRentalAt: EpochMs | null;
 }
 
+export interface VehicleDocument extends GeneratedArtifact {
+  /** Contract PDFs only: the contract was voided (kept on record, printed with a VOID mark). */
+  contractVoided: boolean;
+}
+
 export interface VehicleDetail {
   vehicle: Vehicle;
   out: VehicleOutInfo | null;
@@ -539,7 +544,7 @@ export interface VehicleDetail {
   history: RentalListItem[];
   knownDamage: KnownDamageItem[];
   /** Signed-contract and report PDFs of this vehicle's rentals, newest first. */
-  documents: GeneratedArtifact[];
+  documents: VehicleDocument[];
   /** Latest front-left photo (header fallback when the vehicle has no photo of its own). */
   latestPhoto: Photo | null;
 }

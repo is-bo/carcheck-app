@@ -24,6 +24,8 @@ export function useLiveQuery<T>(fetcher: () => Promise<T>, watch: readonly DataE
   });
   const fetcherRef = useRef(fetcher);
   const hasData = useRef(false);
+  // Only the newest fetch may land: a slow focus refetch must not overwrite a newer data-event one.
+  const ticket = useRef(0);
 
   // Keep the latest fetcher closure available to `load` without giving `load` itself a new
   // identity every render (it needs to stay stable for useFocusEffect / the subscription below).
@@ -32,13 +34,17 @@ export function useLiveQuery<T>(fetcher: () => Promise<T>, watch: readonly DataE
   });
 
   const load = useCallback(() => {
+    const mine = ++ticket.current;
     setState((s) => (hasData.current ? s : { ...s, loading: true }));
     fetcherRef.current().then(
       (data) => {
+        if (mine !== ticket.current) return;
         hasData.current = true;
         setState({ data, loading: false, error: null });
       },
-      (error: unknown) => setState((s) => ({ ...s, loading: false, error })),
+      (error: unknown) => {
+        if (mine === ticket.current) setState((s) => ({ ...s, loading: false, error }));
+      },
     );
   }, []);
 

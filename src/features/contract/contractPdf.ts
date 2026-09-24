@@ -27,6 +27,15 @@ export function contractPdfFingerprint(c: Pick<SignedContractWithState, 'id' | '
   return `contract-pdf/${CONTRACT_PDF_LAYOUT_VERSION}:${c.id}:${c.contentSha256}:${state}`;
 }
 
+/**
+ * The agency name as signed. A re-render (void mark, lost file, layout bump) must not print a
+ * later renamed agency in the header of an old contract.
+ */
+export function frozenAgencyName(c: Pick<SignedContractWithState, 'variables'>): string | null {
+  const name = c.variables['agency.name'];
+  return typeof name === 'string' && name.trim().length > 0 ? name : null;
+}
+
 /** Delays before each attempt of the background render (ms). */
 export const CONTRACT_PDF_RETRY_DELAYS = [0, 3000, 15000] as const;
 
@@ -55,7 +64,7 @@ async function render(contractId: Id): Promise<GeneratedArtifact> {
     signatureUri: resolveFileUri(contract.signature.path),
   });
   const html = await buildContractPdfHtml(
-    { ...contract, reference: rental.reference ?? '', agencyName: agency.name },
+    { ...contract, reference: rental.reference ?? '', agencyName: frozenAgencyName(contract) ?? agency.name },
     resolver,
   );
   const pdf = await renderPdf(html, newTempFileUri('capture', 'pdf'));

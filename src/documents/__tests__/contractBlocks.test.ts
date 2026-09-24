@@ -68,7 +68,17 @@ describe('contractHtmlToBlocks', () => {
       ordered: false,
       items: [{ spans: [{ text: 'Existing A · Scratch' }], depth: 0, images: [{ kind: 'photo', photoId: 'p-1', annotated: false }] }],
     });
-    expect(blocks[3]).toEqual({ type: 'image', alt: 'Rear', source: { kind: 'photo', photoId: 'p-2', annotated: true } });
+    expect(blocks[3]).toEqual({
+      type: 'image',
+      alt: 'Rear',
+      source: {
+        kind: 'photo',
+        photoId: 'p-2',
+        annotated: true,
+        size: { width: 4, height: 3 },
+        marks: [{ label: 'A', ring: { x: 0.25, y: 1 / 3, r: 0.2 / 3 } }],
+      },
+    });
     expect(blocks.slice(4)).toEqual([
       { type: 'paragraph', spans: [{ text: 'Text mentioning carcheck-photo:p-9 stays text.' }] },
       { type: 'signature' },

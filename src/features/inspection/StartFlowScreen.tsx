@@ -12,22 +12,32 @@ import { canEnterStep, isStartFlowOpen, START_STEPS as STEP_KEYS, type StartStep
 import type { Id } from '@/domain/types';
 import { BottomSheet, Icon, ListRow, ListSection, plural, Screen, showToast, START_STEPS, StepHeader, Text, type ScreenProps } from '@/ui';
 
-import { routeForStep, START_ROUTE_STEP, startHref, resumeStepFor, stepNumber, type StartRoute } from './startFlow';
+import { rentalHref, RENTAL_DETAIL_ROUTE, routeForStep, START_ROUTE_STEP, startHref, resumeStepFor, stepNumber, type StartRoute } from './startFlow';
 import { useLiveQuery } from './useLiveQuery';
 
-/** Leaves the whole flow (the draft is already saved, so no dialog). */
-export function useExitStartFlow(): (options?: { toast?: string | null; to?: Href }) => void {
+/**
+ * Leaves the whole flow (the draft is already saved, so no dialog). `toRental` lands on that
+ * rental's detail: reuses the one under the flow when there is one, so details never stack.
+ */
+export function useExitStartFlow(): (options?: { toast?: string | null; to?: Href; toRental?: Id }) => void {
   const navigation = useNavigation();
   return useCallback(
     (options) => {
       const toast = options?.toast === undefined ? 'Draft saved' : options.toast;
+      const to = options?.to ?? (options?.toRental ? rentalHref(options.toRental) : undefined);
       // The flow is one route of the root stack: pop it as a whole, then open `to` if given.
       const root = navigation.getParent();
       if (root?.canGoBack()) {
+        const state = root.getState();
+        const below = state?.routes[state.index - 1];
+        const belowIsTarget =
+          options?.toRental !== undefined &&
+          below?.name === RENTAL_DETAIL_ROUTE &&
+          (below.params as { id?: string } | undefined)?.id === options.toRental;
         root.goBack();
-        if (options?.to) router.push(options.to);
+        if (to && !belowIsTarget) router.push(to);
       } else {
-        router.replace(options?.to ?? '/');
+        router.replace(to ?? '/');
       }
       if (toast) showToast(toast);
     },

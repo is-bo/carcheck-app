@@ -4,8 +4,8 @@
  * hardcoding strings, so a path rename on their side can't silently break these screens:
  *  - start flow + rental detail's own href: `@/features/inspection/startFlow`
  *  - return flow + report: `@/features/evidence/returnRoutes`
- * `contractViewer`/`voidContract` have no such module yet (their screens don't exist on disk),
- * so they are coded against the UX_FLOWS §1 inventory paths and flagged in this wave's report.
+ * `contractViewer`/`voidContract` have no route-builder module; they follow the UX_FLOWS §1
+ * inventory paths (app/rental/[id]/contract.tsx and void.tsx).
  */
 import type { Href } from 'expo-router';
 
@@ -28,8 +28,8 @@ export const crossAgent = {
   returnEntry: returnRoutes.entry,
   /** Return-flow agent: generation progress -> evidence images and report PDF. */
   report: returnRoutes.report,
-  /** Not yet built (UX_FLOWS §1 inventory route; no route builder exists for it yet). */
+  /** Read-only signed contract, current version first; voided versions reachable from it. */
   contractViewer: (rentalId: Id) => `/rental/${rentalId}/contract` as Href,
-  /** Not yet built (UX_FLOWS §1 inventory route; no route builder exists for it yet). */
+  /** Fix contract: void & re-sign. */
   voidContract: (rentalId: Id) => `/rental/${rentalId}/void` as Href,
 } as const;
