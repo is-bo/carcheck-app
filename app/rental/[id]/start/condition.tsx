@@ -81,12 +81,20 @@ export default function ConditionStep() {
     else router.push(startHref(id, 'capture', { angle: v.angleKey }));
   };
 
+  // All angles skipped: capture reopens on a skipped angle (initialTarget) for the one required photo.
+  const needsOnePhoto = progress.missing.length === 0 && !progress.hasExteriorPhoto;
   const footer = !facts.data ? null : progress.missing.length > 0 || !progress.hasExteriorPhoto ? (
     <ActionFooter rule>
       <Text variant="bodySmall" tone="secondary">
-        {plural(progress.missing.length, '{n} angle still to photograph or skip.', '{n} angles still to photograph or skip.')}
+        {needsOnePhoto
+          ? 'Take at least one outside photo of the car.'
+          : plural(progress.missing.length, '{n} angle still to photograph or skip.', '{n} angles still to photograph or skip.')}
       </Text>
-      <Button label="Continue photos" onPress={() => router.push(startHref(id, 'capture'))} fullWidth />
+      <Button
+        label={needsOnePhoto ? 'Take a photo' : 'Continue photos'}
+        onPress={() => router.push(startHref(id, 'capture'))}
+        fullWidth
+      />
     </ActionFooter>
   ) : (
     <ActionFooter rule>

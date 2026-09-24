@@ -125,6 +125,10 @@ export default function CaptureStep() {
 
   const conditionHref = startHref(id, 'condition');
   const finish = useCallback(() => router.dismissTo(conditionHref), [conditionHref]);
+  // Opened with nothing left to do (e.g. Resume after the last shot): never show an empty screen.
+  useEffect(() => {
+    if (target?.kind === 'finish') finish();
+  }, [target, finish]);
 
   const close = () => {
     if (single) {

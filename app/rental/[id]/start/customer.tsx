@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Camera, ChevronDown, ChevronUp, CircleAlert, IdCard, ImageIcon, FileText, UserRound } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -18,6 +17,7 @@ import {
   setRentalCustomer,
 } from '@/data/repos';
 import type { Customer, CustomerDocument, CustomerDocumentKind, CustomerSnapshot, Id } from '@/domain/types';
+import { ProtectedThumb } from '@/features/entities/ProtectedThumb';
 import { importDocumentFromLibrary, saveDocumentShot } from '@/features/inspection/captureService';
 import { SingleShotCamera } from '@/features/inspection/SingleShotCamera';
 import { StartFlowScreen } from '@/features/inspection/StartFlowScreen';
@@ -267,9 +267,6 @@ export default function CustomerStep() {
         {profile ? (
           <View style={styles.picked}>
             <View style={styles.pickedText}>
-              <Text variant="label" tone="secondary">
-                Customer profile
-              </Text>
               <Text variant="titleM">{profile.fullName}</Text>
               {profile.phone || profile.licenceNumber ? (
                 <Text variant="bodySmall" tone="secondary">
@@ -358,20 +355,12 @@ export default function CustomerStep() {
               {(docs.data ?? []).length > 0 ? (
                 <View style={styles.docGrid}>
                   {(docs.data ?? []).map((d) => (
-                    <Touchable
-                      key={d.id}
-                      onPress={() => setDeleting(d)}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${DOC_LABEL[d.kind]} photo`}
-                      accessibilityHint="Delete this photo"
-                      focusRadius={radii.photo}
-                      style={styles.docTile}
-                    >
-                      <Image source={{ uri: resolveFileUri(d.file.path) }} style={styles.docImage} contentFit="cover" />
+                    <View key={d.id} style={styles.docTile}>
+                      <ProtectedThumb uri={resolveFileUri(d.file.path)} label={DOC_LABEL[d.kind]} onDelete={() => setDeleting(d)} />
                       <Text variant="code" tone="secondary" numberOfLines={1}>
                         {DOC_LABEL[d.kind]}
                       </Text>
-                    </Touchable>
+                    </View>
                   ))}
                 </View>
               ) : null}
@@ -423,8 +412,7 @@ const styles = StyleSheet.create({
   more: { gap: 16, marginTop: -4 },
   docs: { gap: 8, marginTop: 4 },
   docGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 4 },
-  docTile: { width: 104, gap: 4 },
-  docImage: { width: 104, height: 78, borderRadius: radii.photo, backgroundColor: light.surfaceTint },
+  docTile: { width: 96, gap: 4 },
   docButtons: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56 },
 });

@@ -1,19 +1,21 @@
-import { router, useLocalSearchParams, type Href } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Car, Check, CircleAlert, Plus, Undo2 } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { FlatList, ScrollView, StyleSheet, View } from 'react-native';
 
 import {
+  ConflictError,
   createVehicle,
   DataError,
+  discardDraft,
   findVehiclesByPlate,
   getRental,
   listVehicles,
   setRentalVehicle,
-  startReturn,
 } from '@/data/repos';
 import type { Id, VehicleListItem } from '@/domain/types';
-import { StartFlowScreen } from '@/features/inspection/StartFlowScreen';
+import { returnRoutes } from '@/features/evidence/returnRoutes';
+import { StartFlowScreen, useExitStartFlow } from '@/features/inspection/StartFlowScreen';
 import { startHref } from '@/features/inspection/startFlow';
 import { useLiveQuery } from '@/features/inspection/useLiveQuery';
 import {
@@ -54,6 +56,9 @@ export default function VehicleStep() {
   const [busyId, setBusyId] = useState<Id | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [outItem, setOutItem] = useState<VehicleListItem | null>(null);
+  /** Switching car on a draft that already has pick-up photos: keep them or delete them? */
+  const [switchTo, setSwitchTo] = useState<Id | null>(null);
+  const exit = useExitStartFlow();
 
   const rental = useLiveQuery(() => getRental(id), [id], ['rental']);
   const all = useLiveQuery(() => listVehicles(), [], ['vehicle', 'rental']);
@@ -73,16 +78,33 @@ export default function VehicleStep() {
   const exact = !!q && (all.data ?? []).some((i) => normalizePlate(i.vehicle.plate) === normalizePlate(q));
   const selectedId = rental.data?.vehicleId ?? null;
 
-  const choose = async (vehicleId: Id) => {
+  const choose = async (vehicleId: Id, beforePhotos?: 'keep' | 'delete') => {
     if (busyId) return;
     setBusyId(vehicleId);
     try {
-      await setRentalVehicle(id, vehicleId);
+      await setRentalVehicle(id, vehicleId, { beforePhotos });
+      setSwitchTo(null);
+      if (beforePhotos === 'delete') showToast('Pick-up photos deleted');
       router.push(startHref(id, 'customer'));
     } catch (e) {
-      showToast(e instanceof DataError ? e.message : 'Couldn’t choose this vehicle. Try again.');
+      if (e instanceof ConflictError && e.reason === 'has_photos') setSwitchTo(vehicleId);
+      else showToast(e instanceof DataError ? e.message : 'Couldn’t choose this vehicle. Try again.');
     } finally {
       setBusyId(null);
+    }
+  };
+
+  /** The other car's return opens from Home; a draft with no car yet is not worth keeping. */
+  const openOtherReturn = async (otherRentalId: Id) => {
+    if (!rental.data?.vehicleId) {
+      try {
+        await discardDraft(id);
+      } catch {
+        // Kept as an unfinished draft; nothing is lost.
+      }
+      exit({ toast: null, to: returnRoutes.entry(otherRentalId) });
+    } else {
+      exit({ to: returnRoutes.entry(otherRentalId) });
     }
   };
 
@@ -111,7 +133,7 @@ export default function VehicleStep() {
           divider={false}
         />
       ) : null}
-      {results.length > 0 ? <SectionHeader title={q ? 'Matches' : 'Recent'} count={q ? results.length : undefined} /> : null}
+      {results.length > 0 ? <SectionHeader title={q ? 'Matches' : 'All vehicles'} count={q ? results.length : undefined} /> : null}
     </View>
   );
 
@@ -213,12 +235,34 @@ export default function VehicleStep() {
                 onPress={() => {
                   const rid = outItem?.out?.rentalId;
                   setOutItem(null);
-                  if (!rid) return;
-                  startReturn(rid).then(
-                    () => router.push(`/rental/${rid}/return/capture` as Href),
-                    (e: unknown) => showToast(e instanceof DataError ? e.message : 'Couldn’t start the return.'),
-                  );
+                  if (rid) void openOtherReturn(rid);
                 }}
+              />
+            </View>
+          </BottomSheet>
+          <BottomSheet
+            open={!!switchTo}
+            onClose={() => setSwitchTo(null)}
+            snapPoints={[340]}
+            accessibilityLabel="Change vehicle"
+            header={<Text variant="titleL">Change the vehicle?</Text>}
+          >
+            <View style={styles.outBody}>
+              <Text variant="body" tone="secondary">
+                This rental already has pick-up photos. Are they of this car?
+              </Text>
+              <Button
+                label="Same car, keep photos"
+                variant="secondary"
+                fullWidth
+                loading={!!switchTo && busyId === switchTo}
+                onPress={() => switchTo && void choose(switchTo, 'keep')}
+              />
+              <Button
+                label="Different car, delete photos"
+                variant="destructive"
+                fullWidth
+                onPress={() => switchTo && void choose(switchTo, 'delete')}
               />
             </View>
           </BottomSheet>

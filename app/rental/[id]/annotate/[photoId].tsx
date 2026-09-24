@@ -1,9 +1,9 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { CircleAlert, ListChecks, Lock, RotateCcw } from 'lucide-react-native';
+import { ChevronRight, CircleAlert, ListChecks, Lock, RotateCcw } from 'lucide-react-native';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
-import { DataError, getPhoto, getRentalFacts } from '@/data/repos';
+import { DataError, getPhoto, getRentalFacts, listInspectionAngles } from '@/data/repos';
 import { isAfterEditable, isBeforeEditable, type RentalFacts } from '@/domain/rentalLifecycle';
 import { EXTERIOR_ANGLE_KEYS, type Photo } from '@/domain/types';
 import { damageRowDetail, damageRowTitle } from '@/features/damage/damageForm';
@@ -15,6 +15,7 @@ import { SingleShotCamera } from '@/features/inspection/SingleShotCamera';
 import { useLiveQuery } from '@/features/inspection/useLiveQuery';
 import { MarkerEditor } from '@/media/annotate';
 import {
+  ActionFooter,
   BottomSheet,
   Button,
   EmptyState,
@@ -62,6 +63,21 @@ export default function AnnotateRoute() {
   const facts = useLiveQuery(() => getRentalFacts(rentalId), [rentalId], ['rental', 'contract']);
   const editable = !!photo.data && !!facts.data && editableFor(photo.data, facts.data);
   const marking = useDamageMarking({ rentalId, photo: photo.data ?? null, editable });
+  const phase = photo.data?.phase ?? null;
+  const angles = useLiveQuery(
+    () => (phase ? listInspectionAngles(rentalId, phase) : Promise.resolve([])),
+    [rentalId, phase],
+    ['photo', 'inspection'],
+  );
+  // Walk order of the angle photos, so marking several angles never needs a trip back to the grid.
+  const walk = (angles.data ?? []).flatMap((v) => (v.photo ? [v.photo.id] : []));
+  const at = walk.indexOf(photoId);
+  const nextPhotoId = at >= 0 && at < walk.length - 1 ? walk[at + 1] : null;
+  const goTo = (id: string) => {
+    marking.select(null);
+    setPhotoId(id);
+    router.setParams({ photoId: id });
+  };
 
   if (photo.error && !photo.data) {
     return (
@@ -76,7 +92,16 @@ export default function AnnotateRoute() {
     );
   }
   if (!photo.data) return <Screen tone="rebate" leading="back" title="Photo" />;
-  return <Editor photo={photo.data} rentalId={rentalId} editable={editable} marking={marking} onReplaced={setPhotoId} />;
+  return (
+    <Editor
+      photo={photo.data}
+      rentalId={rentalId}
+      editable={editable}
+      marking={marking}
+      onReplaced={setPhotoId}
+      onNext={nextPhotoId ? () => goTo(nextPhotoId) : null}
+    />
+  );
 }
 
 function Editor({
@@ -85,12 +110,15 @@ function Editor({
   editable,
   marking,
   onReplaced,
+  onNext,
 }: {
   photo: Photo;
   rentalId: string;
   editable: boolean;
   marking: DamageMarking;
   onReplaced: (photoId: string) => void;
+  /** Next angle photo in walk order; null on the last one. */
+  onNext: (() => void) | null;
 }) {
   const { width, height } = useWindowDimensions();
   const landscape = width > height;
@@ -171,7 +199,16 @@ function Editor({
             <IconButton icon={ListChecks} accessibilityLabel="List of marks" onPress={() => setListOpen(true)} />
           ) : null}
           {canRetake ? <IconButton icon={RotateCcw} accessibilityLabel="Retake photo" onPress={() => setCamera('retake')} /> : null}
+          {landscape && onNext ? <IconButton icon={ChevronRight} accessibilityLabel="Next photo" onPress={onNext} /> : null}
         </>
+      }
+      footer={
+        landscape ? undefined : (
+          <ActionFooter row>
+            {onNext ? <Button label="Next photo" variant="secondary" icon={ChevronRight} iconPosition="trailing" onPress={onNext} style={styles.fill} /> : null}
+            <Button label="Done" onPress={() => router.back()} style={styles.fill} />
+          </ActionFooter>
+        )
       }
       overlay={
         <>
