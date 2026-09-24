@@ -1,5 +1,18 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowRight, Camera, ChevronRight, EllipsisVertical, Eye, EyeOff, History, LayoutList, PencilLine, Plus, Smartphone } from 'lucide-react-native';
+import {
+  ArrowRight,
+  Camera,
+  ChevronRight,
+  EllipsisVertical,
+  Eye,
+  EyeOff,
+  History,
+  LayoutList,
+  PencilLine,
+  Plus,
+  Smartphone,
+  TriangleAlert,
+} from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -8,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { scheduleOnRN } from 'react-native-worklets';
 
 import {
+  confirmMarksChecked,
   DataError,
   getAnglePairs,
   getPref,
@@ -38,6 +52,7 @@ import { ComparisonView, OpacityControl, useSharedViewport, type CompareMode } f
 import { dividerHandleHit } from '@/media/compare/viewportMath';
 import {
   ActionFooter,
+  Banner,
   BottomSheet,
   Button,
   ConfirmDialog,
@@ -289,6 +304,13 @@ function CompareBody({ rental, sequence, damages, initialMode, requested, onLeav
 
   const closeupThumb = usePhotoUri(dm.selectedCloseup, 'thumb');
 
+  const confirmMarks = useCallback(() => {
+    if (!after) return;
+    confirmMarksChecked(after.id)
+      .then(() => showToast('Marks checked'))
+      .catch((e: unknown) => showToast(e instanceof DataError ? e.message : "Couldn't save that. Try again."));
+  }, [after]);
+
   // --- swipe between angles (UI thread; only at fit, never while marking) ---------------------
   const sliderMode = mode === 'slider';
   const swipe = useMemo(
@@ -470,6 +492,16 @@ function CompareBody({ rental, sequence, damages, initialMode, requested, onLeav
     </View>
   ) : null;
 
+  // After a retake the marks moved over unchanged: ask once per photo (review M2, DECISIONS Data §1).
+  const marksCheck =
+    editable && !marking && after?.marksCheckNeeded ? (
+      <Banner
+        icon={TriangleAlert}
+        message="This photo was retaken. Check each mark still sits on the damage; move it if not."
+        action={<Button label="Marks look right" variant="quiet" onPress={confirmMarks} />}
+      />
+    ) : null;
+
   const openRow = editable ? (d: Damage) => dm.select(d.id) : undefined;
   // Portrait keeps the stage big: one summary row, the list opens in a sheet.
   const marksSummary =
@@ -598,6 +630,7 @@ function CompareBody({ rental, sequence, damages, initialMode, requested, onLeav
             {topBar}
             {modeSwitch}
             <ScrollView style={styles.flex}>
+              {marksCheck}
               {toggles}
               <DamageRows damages={rows} onOpen={openRow} />
             </ScrollView>
@@ -626,6 +659,7 @@ function CompareBody({ rental, sequence, damages, initialMode, requested, onLeav
     >
       {modeSwitch}
       {stage}
+      {marksCheck}
       {marksSummary}
     </Screen>
   );

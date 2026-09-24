@@ -116,6 +116,11 @@ export interface ReturnReadiness {
   unreviewed: AnglePair[];
   /** Exterior angles neither photographed nor skipped at return. */
   missing: AnglePair[];
+  /**
+   * Return photos retaken while they had marks, not yet confirmed in Compare (review M2). A
+   * warning, not a blocker: Complete return asks first, the employee may still go ahead.
+   */
+  marksToCheck: AnglePair[];
   newCount: number;
   uncertainCount: number;
   hasExteriorPhoto: boolean;
@@ -143,6 +148,7 @@ export function returnReadiness(pairs: readonly AnglePair[]): ReturnReadiness {
     reviewed,
     unreviewed,
     missing,
+    marksToCheck: seq.filter((p) => p.after?.marksCheckNeeded === true),
     newCount: pairs.reduce((n, p) => n + p.newDamageCount, 0),
     uncertainCount: pairs.reduce((n, p) => n + p.uncertainDamageCount, 0),
     hasExteriorPhoto,

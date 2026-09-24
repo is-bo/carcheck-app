@@ -103,4 +103,14 @@ describe('migrations', () => {
     ]);
     await db.close();
   });
+
+  it('v3 adds the marks check to photos, off for photos taken before it', async () => {
+    const db = await freshDb();
+    await db.execAsync(`BEGIN; ${MIGRATIONS[0].sql}; ${MIGRATIONS[1].sql}; PRAGMA user_version = 2; COMMIT;`);
+    expect(await migrate(db)).toEqual({ from: 2, to: SCHEMA_VERSION });
+    const columns = await db.getAllAsync<{ name: string; dflt_value: string | null; notnull: number }>('PRAGMA table_info(photo)');
+    expect(columns.find((c) => c.name === 'marks_check_needed')).toMatchObject({ dflt_value: '0', notnull: 1 });
+    expect(await checkIntegrity(db)).toEqual({ ok: true, problems: [] });
+    await db.close();
+  });
 });

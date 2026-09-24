@@ -104,6 +104,16 @@ describe('returnReadiness', () => {
     expect(r.canComplete).toBe(true);
   });
 
+  it('lists retaken photos whose marks are unchecked, as a warning that never blocks', () => {
+    const pairs = EXTERIOR.map((k) =>
+      pair(k, { afterState: reviewed(k), after: photo('after', k, { marksCheckNeeded: k === 'rear' || k === 'left' }) }),
+    );
+    const r = returnReadiness(pairs);
+    expect(r.marksToCheck.map((p) => p.angleKey)).toEqual(['left', 'rear']);
+    expect(r.canComplete).toBe(true);
+    expect(returnReadiness(EXTERIOR.map((k) => pair(k, { afterState: reviewed(k) }))).marksToCheck).toEqual([]);
+  });
+
   it('needs at least one exterior return photo', () => {
     const pairs = EXTERIOR.map((k) => pair(k, { after: null, afterState: angleState({ angleKey: k, skippedAt: 1 }) }));
     const r = returnReadiness(pairs);

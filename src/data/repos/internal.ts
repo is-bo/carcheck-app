@@ -418,11 +418,15 @@ export interface PhotoRow {
   sha256: string;
   frozen_at: number | null;
   created_at: number;
+  marks_check_needed: number;
 }
 
 export const PHOTO_COLUMNS =
   'p.id, p.rental_id, p.inspection_id, p.phase, p.kind, p.angle_key, p.slot, p.label, p.capture_order, ' +
-  'p.captured_at, p.tz_offset_min, p.file_path, p.width, p.height, p.byte_size, p.sha256, p.frozen_at, p.created_at';
+  'p.captured_at, p.tz_offset_min, p.file_path, p.width, p.height, p.byte_size, p.sha256, p.frozen_at, p.created_at, ' +
+  // Only meaningful while return marks still sit on the photo (deleting them all ends the check).
+  "(p.marks_check_needed = 1 AND EXISTS (SELECT 1 FROM damage md WHERE md.after_photo_id = p.id AND md.found_phase = 'after')) " +
+  'AS marks_check_needed';
 
 export function mapPhoto(r: PhotoRow): Photo {
   return {
@@ -440,6 +444,7 @@ export function mapPhoto(r: PhotoRow): Photo {
     file: { path: r.file_path, width: r.width, height: r.height, byteSize: r.byte_size, sha256: r.sha256 },
     frozenAt: r.frozen_at,
     createdAt: r.created_at,
+    marksCheckNeeded: r.marks_check_needed === 1,
   };
 }
 

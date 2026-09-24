@@ -159,8 +159,9 @@ export async function addPhoto(input: AddPhotoInput): Promise<Photo> {
 
 /**
  * Retake (DECISIONS §Data 1): the new photo replaces the old one on the same pair key; damage
- * marks carry over with their normalized rings (the UI asks the employee to check them) and
- * the old file is deleted after commit. Frozen photos can never be retaken.
+ * marks carry over with their normalized rings (the UI asks the employee to check them; a return
+ * photo that had marks stays flagged `marksCheckNeeded` until confirmed) and the old file is
+ * deleted after commit. Frozen photos can never be retaken.
  */
 export async function retakePhoto(photoId: Id, image: CapturedImage): Promise<Photo> {
   const current = await read((db) => loadPhoto(db, photoId));
@@ -174,17 +175,25 @@ export async function retakePhoto(photoId: Id, image: CapturedImage): Promise<Ph
       if (old.frozen_at !== null) throw new ImmutableError('This photo is part of signed or completed evidence.');
       const { facts } = await loadRentalFacts(tx, old.rental_id);
       assertPhaseEditable(facts, old.phase);
+      // Return marks carried over to a differently framed shot must be checked (review M2).
+      const returnMarks =
+        old.phase === 'after'
+          ? ((await tx.getFirstAsync<{ n: number }>(
+              "SELECT count(*) AS n FROM damage WHERE after_photo_id = ? AND found_phase = 'after'",
+              [old.id],
+            ))?.n ?? 0)
+          : 0;
       // The damage rows point at the old row until they are re-pointed below.
       await tx.execAsync('PRAGMA defer_foreign_keys = ON');
       await tx.runAsync('DELETE FROM photo WHERE id = ?', [old.id]);
       await tx.runAsync(
         `INSERT INTO photo (id, rental_id, inspection_id, phase, kind, angle_key, slot, label, capture_order, captured_at,
-           tz_offset_min, file_path, width, height, byte_size, sha256, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           tz_offset_min, file_path, width, height, byte_size, sha256, created_at, marks_check_needed)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id, old.rental_id, old.inspection_id, old.phase, old.kind, old.angle_key, old.slot, old.label,
           await nextCaptureOrder(tx, old.inspection_id), image.capturedAt, image.tzOffsetMin, rel, image.width,
-          image.height, image.byteSize, image.sha256, now,
+          image.height, image.byteSize, image.sha256, now, returnMarks > 0 ? 1 : 0,
         ],
       );
       for (const column of ['before_photo_id', 'after_photo_id', 'closeup_photo_id']) {
@@ -194,6 +203,20 @@ export async function retakePhoto(photoId: Id, image: CapturedImage): Promise<Ph
       return mapPhoto(await loadPhoto(tx, id));
     }),
   );
+}
+
+/**
+ * The employee confirmed in Compare that the marks carried over by a return retake still sit on
+ * the damage (clears `marksCheckNeeded`). Only while the return is open.
+ */
+export function confirmMarksChecked(photoId: Id): Promise<void> {
+  return write(['photo'], async ({ tx }) => {
+    const photo = await loadPhoto(tx, photoId);
+    if (photo.frozen_at !== null) throw new ImmutableError('This photo is part of signed or completed evidence.');
+    const { facts } = await loadRentalFacts(tx, photo.rental_id);
+    assertPhaseEditable(facts, photo.phase);
+    await tx.runAsync('UPDATE photo SET marks_check_needed = 0 WHERE id = ?', [photo.id]);
+  });
 }
 
 /**

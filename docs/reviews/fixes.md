@@ -1,6 +1,6 @@
 # Wave C fixes — status per finding
 
-One line per finding in the four reviews (the review files themselves are unchanged). All areas were fixed in one pass, so this single report replaces the per-area `fixes-<area>.md` files. Checks after the last change: `npx tsc --noEmit` clean, `npx eslint app src` clean, 385 jest tests passing. Nothing was run on a phone yet: every UI change needs the on-phone test round (HANDOFF step 3).
+One line per finding in the four reviews (the review files themselves are unchanged). All areas were fixed in one pass, so this single report replaces the per-area `fixes-<area>.md` files. Checks after the last change: `npx tsc --noEmit` clean, `npx eslint app src` clean, 390 jest tests passing. Nothing was run on a phone yet: every UI change needs the on-phone test round (HANDOFF step 3).
 
 ## functional.md
 
@@ -19,7 +19,7 @@ One line per finding in the four reviews (the review files themselves are unchan
 - **H1** rental closed with only a voided contract → fixed. Migration 2 trigger (`returned` needs a valid contract), `returnBlockers` `needs_signature`, void refused once the return inspection started (trigger + `canVoidContract`), Fix contract hidden then.
 - **H2** vehicle change keeps the old car's frozen photos → fixed. Migration 2 trigger + `canChangeVehicle`: no change once anything was signed/frozen; drafts with photos ask keep/delete (`setRentalVehicle(..., { beforePhotos })`).
 - **M1** draft "Repaired / gone" survives → fixed. Triggers undo it on draft delete or vehicle switch; migration 2 repairs rows left by the old behaviour.
-- **M2** return retake moves rings silently → partly. The retake now warns to check the marks and returns to Compare on that angle. A persisted "needs check" flag blocking completion was not added.
+- **M2** return retake moves rings silently → fixed. The retake warns and returns to Compare on that angle; migration 3 stores `photo.marks_check_needed`, Compare shows "Marks look right" until confirmed, and Complete return warns ("Check marks" / "Complete anyway") while any retaken photo is unchecked. Owner choice: a warning, not a hard block.
 - **M3** report lacks pick-up condition → fixed. Paired BEFORE | AFTER contact sheet per angle.
 - **M4** two contract-PDF renderers; live agency name in header → fixed. One renderer; header uses the frozen `agency.name` variable.
 - **M5** empty DB + sweep deletes everything → fixed. `isOrphanSweepSafe` refuses when the DB references nothing or orphans exceed 20 % (>10). No recovery screen was added.

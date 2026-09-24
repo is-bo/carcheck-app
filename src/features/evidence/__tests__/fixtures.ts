@@ -20,6 +20,7 @@ export function photo(phase: Phase, angleKey: string, over: Partial<Photo> = {})
     file: { path: `photos/r1/${id}.jpg`, byteSize: 1000, sha256: `sha-${id}`, width: 4032, height: 3024 },
     frozenAt: null,
     createdAt: 0,
+    marksCheckNeeded: false,
     ...over,
   };
 }

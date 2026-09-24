@@ -77,6 +77,7 @@ export {
 
 export {
   addPhoto,
+  confirmMarksChecked,
   deletePhoto,
   getAnglePairs,
   getInspection,

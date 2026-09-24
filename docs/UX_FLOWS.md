@@ -253,6 +253,7 @@ Guided capture is covered in §3. After the last angle, the flow lands on **Cond
 - **Slider:** a vertical divider with a 48dp round handle, starting at 50%. Only the handle drags the divider. Elsewhere, one finger pans when zoomed and pinch zooms both layers together.
 - **Markers:** they are always attached to their own photo. New/uncertain markers live on AFTER, and existing markers on BEFORE. In Overlay and Slider, each marker draws only where its layer is visible. **Markers** toggles all markers. **Existing** also projects existing-damage rings onto AFTER as grey dashed context, which is approximate, so it is labelled "approx." at first use.
 - **Mark damage** (was "Mark new damage"; shortened to fit 360 dp) is the prominent primary button; on a completed return it reads **Edit return** and asks before reopening. It puts the current mode into marking: a banner reads "Tap the damage on the AFTER photo" with a **Done** button. Taps map to AFTER coordinates in every mode. In Side by side, only the AFTER pane accepts pins, and a matching dashed ring appears live on BEFORE. The quick sheet is the same as in §4.
+- **Retaken photo with marks** (return only): the marks move to the new photo unchanged, so the angle shows a banner "This photo was retaken. Check each mark still sits on the damage; move it if not." with **Marks look right**. The flag is stored on the photo; it also ends when every mark on it is deleted.
 - **Next angle →** marks the angle as viewed and advances. On the last angle it becomes **Continue**. Unviewed angles do not block; the Details step shows "2 angles not reviewed" with a link back.
 - **Landscape:** the image takes the full height. The right rail holds, top to bottom: the mode switch, toggles, and Mark/Next. The filmstrip moves into the ⋮ angle picker.
 
@@ -262,7 +263,7 @@ Guided capture is covered in §3. After the last angle, the flow lands on **Cond
 - **Return mileage** is not prefilled; the start mileage is shown as a hint and the dashboard thumbnail sits alongside. If the value is below the start mileage, an inline warning appears but nothing blocks.
 - **Fuel** and **Notes** are both optional.
 - The summary line reads "3 new · 1 uncertain · 8 of 8 angles compared".
-- The primary button is **Complete return**, with no dialog. The return can be reopened (§8), and all evidence can be regenerated.
+- The primary button is **Complete return**. It asks first only when something is open, in this order: no outside photo, angles not photographed (**Take photos** / **Skip them**), angles not compared (**Compare now** / **They look the same**), then retaken photos whose marks are unchecked ("Check the marks on Front": **Check marks** / **Complete anyway**). The summary line links to the same place. The return can be reopened (§8), and all evidence can be regenerated.
 
 **`report.tsx`: generating state.**
 - Progress with honest steps: "Building evidence image 2 of 3…" then "Creating report PDF…". It cannot be cancelled, but it is safe: if the app is killed, generation re-runs when the rental is opened.

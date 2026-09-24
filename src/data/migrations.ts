@@ -656,9 +656,19 @@ UPDATE vehicle_damage SET resolved_at = NULL, resolution = NULL, resolution_note
      OR (resolved_rental_id IS NOT NULL AND vehicle_id IS NOT (SELECT vehicle_id FROM rental WHERE id = resolved_rental_id));
 `;
 
+// ---------------------------------------------------------------------------------------------
+// v3: "check the marks" after a return retake (architecture review M2). A retake carries the
+// marks over to a differently framed photo; the new photo is flagged until the employee confirms
+// in Compare that every mark still sits on the damage. Frozen photos keep whatever they had.
+
+const V3_MARKS_CHECK = `
+ALTER TABLE photo ADD COLUMN marks_check_needed INTEGER NOT NULL DEFAULT 0 CHECK (marks_check_needed IN (0, 1));
+`;
+
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: 'initial schema', sql: V1_TABLES + V1_INDEXES + V1_VIEWS + V1_TRIGGERS + V1_SEED },
   { version: 2, name: 'signature and vehicle rules', sql: V2_TRIGGERS },
+  { version: 3, name: 'marks check after a return retake', sql: V3_MARKS_CHECK },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;

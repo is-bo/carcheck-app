@@ -262,6 +262,11 @@ export interface Photo extends PairKey {
   /** Set when a signature or completed return makes the photo permanent evidence. */
   frozenAt: EpochMs | null;
   createdAt: EpochMs;
+  /**
+   * A return photo retaken while it had marks: the marks moved over unchanged, so Compare asks
+   * the employee to confirm they still sit on the damage, and Complete return warns until then.
+   */
+  marksCheckNeeded: boolean;
 }
 
 /**
