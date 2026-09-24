@@ -1,0 +1,143 @@
+name: Android APK
+
+# Builds a side-loadable APK. android/ is generated here by `expo prebuild` (never committed).
+# Release signing: repo secrets ANDROID_KEYSTORE_BASE64 + ANDROID_KEYSTORE_PASSWORD + ANDROID_KEY_ALIAS
+# (+ optional ANDROID_KEY_PASSWORD, defaults to the store password). Without them the release APK is
+# signed with the public debug keystore: installable for testing, NOT for distribution.
+# variant=debug builds the dev-client APK that loads JS from Metro on your PC. See docs/ARCHITECTURE.md.
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: 'release = standalone APK, debug = dev client (needs Metro on your PC)'
+        type: choice
+        options: [release, debug]
+        default: release
+      abis:
+        description: 'Comma-separated ABIs (add x86_64 to run on an emulator)'
+        required: false
+        default: 'armeabi-v7a,arm64-v8a'
+
+concurrency:
+  group: android-apk-${{ github.ref }}-${{ inputs.variant || 'release' }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    name: APK (${{ inputs.variant || 'release' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      VARIANT: ${{ inputs.variant || 'release' }}
+      ABIS: ${{ inputs.abis || 'armeabi-v7a,arm64-v8a' }}
+      CARCHECK_VERSION_CODE: ${{ github.run_number }}
+      EXPO_NO_TELEMETRY: 1
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck, lint, unit tests
+        run: npm run verify
+
+      - name: Generate native Android project
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Prepare signing
+        id: signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          if [ "$VARIANT" = "debug" ]; then
+            echo "kind=devclient" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "::warning::No release keystore secret - APK is signed with the public DEBUG keystore. Test only; do not hand it to agencies."
+            echo "kind=debugsigned" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -z "$ANDROID_KEYSTORE_PASSWORD" ] || [ -z "$ANDROID_KEY_ALIAS" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 is set but ANDROID_KEYSTORE_PASSWORD / ANDROID_KEY_ALIAS are missing."
+            exit 1
+          fi
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          echo "kind=release" >> "$GITHUB_OUTPUT"
+
+      - name: Build APK
+        working-directory: android
+        env:
+          SIGNING_KIND: ${{ steps.signing.outputs.kind }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ "$VARIANT" = "debug" ]; then task=assembleDebug; else task=assembleRelease; fi
+          args=("$task" --no-daemon "-PreactNativeArchitectures=$ABIS")
+          if [ "$SIGNING_KIND" = "release" ]; then
+            # AGP's injected signing properties override the template's release -> debug signingConfig.
+            args+=(
+              "-Pandroid.injected.signing.store.file=$RUNNER_TEMP/release.jks"
+              "-Pandroid.injected.signing.store.password=$ANDROID_KEYSTORE_PASSWORD"
+              "-Pandroid.injected.signing.key.alias=$ANDROID_KEY_ALIAS"
+              "-Pandroid.injected.signing.key.password=${ANDROID_KEY_PASSWORD:-$ANDROID_KEYSTORE_PASSWORD}"
+            )
+          fi
+          ./gradlew "${args[@]}"
+
+      - name: Verify signature and name artifact
+        id: apk
+        env:
+          SIGNING_KIND: ${{ steps.signing.outputs.kind }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          apk="android/app/build/outputs/apk/$VARIANT/app-$VARIANT.apk"
+          buildtools=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)
+          "${buildtools}apksigner" verify --print-certs "$apk" | tee "$RUNNER_TEMP/signer.txt"
+          actual=$(grep -m1 'certificate SHA-256 digest' "$RUNNER_TEMP/signer.txt" | awk '{print $NF}')
+          if [ "$SIGNING_KIND" = "release" ]; then
+            expected=$(keytool -list -v -keystore "$RUNNER_TEMP/release.jks" -storepass "$ANDROID_KEYSTORE_PASSWORD" \
+              -alias "$ANDROID_KEY_ALIAS" | grep -m1 'SHA256:' | awk '{print $2}' | tr -d ':' | tr 'A-F' 'a-f')
+            rm -f "$RUNNER_TEMP/release.jks"
+            if [ "$actual" != "$expected" ]; then
+              echo "::error::APK is not signed with the release keystore (got $actual)."
+              exit 1
+            fi
+          fi
+          version=$(node -p "require('./package.json').version")
+          name="carcheck-${version}-${CARCHECK_VERSION_CODE}-${SIGNING_KIND}.apk"
+          mv "$apk" "$RUNNER_TEMP/$name"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "path=$RUNNER_TEMP/$name" >> "$GITHUB_OUTPUT"
+          echo "APK: \`$name\` - signer SHA-256 \`$actual\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.apk.outputs.name }}
+          path: ${{ steps.apk.outputs.path }}
+          if-no-files-found: error
+          retention-days: 30

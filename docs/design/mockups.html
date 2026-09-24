@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CarCheck · screen mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+--ink:#131517;--ink2:#454B50;--ink3:#646B70;
+--paper:#FFFFFF;--paper2:#F1F2F2;--paper3:#E4E7E8;
+--rule:#D3D7D9;--outline:#8A9196;
+--accent:#1F4E96;--accent-press:#173B72;--accent-wash:#E9EEF6;
+--new:#C8321B;--new-wash:#FBEAE7;--unc:#F0A81C;--unc-ink:#9A5B00;
+--rebate:#0C0D0E;--rebate2:#1A1D1F;--rebate3:#2A2E31;--rebate-rule:#3A4044;
+--on-rebate:#F4F5F5;--on-rebate2:#A3AAAE;--accent-dark:#7FA6E6;
+--f:"Barlow",system-ui,sans-serif;--fc:"Barlow Semi Condensed","Barlow",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+button{font:inherit;color:inherit;background:none;border:0;cursor:default}
+.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.i.s20{width:20px;height:20px}.i.s18{width:18px;height:18px}.i.s16{width:16px;height:16px}
+.num{font-feature-settings:"tnum" 1,"zero" 1}
+.code{font-family:var(--fc);font-weight:500;font-size:12px;line-height:16px;letter-spacing:.06em;text-transform:uppercase;font-feature-settings:"tnum" 1,"zero" 1}
+.mk-t{font:600 14px var(--f);text-anchor:middle;font-feature-settings:"tnum" 1}
+.g{width:22px;height:22px;flex:none;overflow:visible}
+
+/* photo tones (synthetic placeholders) */
+.ph-white{--sky:#C9CDD0;--wall:#AEB4B8;--wall-line:#9CA2A6;--ground:#7A8084;--paint:#D9DCDE;--shadow:#4E5357;--body:#ECEEEF;--glass:#3F454A;--seam:#9DA3A7;--tyre:#232629;--rim:#9AA0A4;--lamp:#C4C9CC}
+.ph-after{--sky:#B3B6B6;--wall:#979B9E;--wall-line:#868A8D;--ground:#63686C;--paint:#C1C4C6;--shadow:#3D4145;--body:#D8DADB;--glass:#33383C;--seam:#899095;--tyre:#1D2023;--rim:#858A8E;--lamp:#AEB2B5}
+.ph-dark{--sky:#C3C8CB;--wall:#A8AEB2;--wall-line:#969CA0;--ground:#767C80;--paint:#D6D9DB;--shadow:#4A4F53;--body:#4B5156;--glass:#2B3034;--seam:#33383C;--tyre:#1D2023;--rim:#8E9498;--lamp:#9EA4A8}
+.photo{display:block}
+
+/* orbit */
+.orbit{display:block;overflow:visible}
+.orbit.on-dark{--tc-body:#2A2E31;--tc-line:#A3AAAE;--tc-glass:#0C0D0E}
+.orbit.on-light{--tc-body:#FFFFFF;--tc-line:#454B50;--tc-glass:#D3D7D9}
+.seg{fill:none;stroke-width:7;stroke-linecap:butt}
+.on-dark .seg.todo{stroke:#3A4044}.on-dark .seg.done{stroke:#F4F5F5}.on-dark .seg.now{stroke:var(--accent-dark)}.on-dark .seg.new{stroke:var(--new)}
+.on-dark .seg.skip{stroke:#A3AAAE;stroke-dasharray:2 2.5}
+.on-light .seg.todo{stroke:#D3D7D9}.on-light .seg.done{stroke:var(--ink)}.on-light .seg.now{stroke:var(--accent)}.on-light .seg.skip{stroke:var(--ink3);stroke-dasharray:2 2.5}
+.on-dark .cam-halo{fill:rgba(127,166,230,.28)}.on-dark .cam-dot{fill:var(--accent-dark)}
+.on-light .cam-halo{fill:rgba(31,78,150,.18)}.on-light .cam-dot{fill:var(--accent)}
+
+/* device */
+.phone{width:390px;height:844px;position:relative;overflow:hidden;border-radius:32px;background:var(--paper);color:var(--ink);font-family:var(--f);font-size:16px;line-height:22px;box-shadow:0 0 0 1px rgba(19,21,23,.16),0 24px 48px -20px rgba(19,21,23,.35);-webkit-font-smoothing:antialiased}
+.phone.dark{background:var(--rebate);color:var(--on-rebate)}
+.sb{height:28px;display:flex;align-items:center;justify-content:space-between;padding:4px 24px 0 26px;font-weight:600;font-size:14px}
+.sb-r{display:flex;gap:6px;align-items:center}
+.gesture{position:absolute;left:0;right:0;bottom:0;height:24px;display:grid;place-items:center;color:var(--ink)}
+.gesture i{width:108px;height:4px;border-radius:2px;background:currentColor;opacity:.85}
+.g-dark{color:var(--on-rebate)}
+
+/* buttons */
+.btn{height:52px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:600;font-size:17px;line-height:1;padding:0 20px;white-space:nowrap}
+.btn-primary{background:var(--ink);color:#fff}
+.btn-accent{background:var(--accent);color:#fff}
+.btn-secondary{border:1.5px solid var(--ink);color:var(--ink)}
+.btn-quiet{color:var(--accent);padding:0 12px}
+.btn-sm{height:40px;font-size:15px;padding:0 14px;border-radius:6px}
+.btn-tonal{background:var(--accent-wash);color:var(--accent)}
+.dark .btn-primary{background:var(--on-rebate);color:var(--ink)}
+.dark .btn-secondary{border-color:var(--on-rebate2);color:var(--on-rebate)}
+.icon-btn{width:48px;height:48px;display:grid;place-items:center;border-radius:24px;flex:none}
+
+/* app bar */
+.appbar{height:64px;display:flex;align-items:center;padding:0 4px 0 16px;gap:4px}
+.appbar h1{font-size:24px;line-height:30px;font-weight:600;letter-spacing:-.01em;flex:1}
+.topbar{height:56px;display:flex;align-items:center;padding:0 4px;gap:4px}
+.topbar .t{flex:1;min-width:0}
+.topbar .t b{display:block;font-size:18px;line-height:22px;font-weight:600}
+.topbar .t span{display:block;font-size:14px;line-height:18px;color:var(--ink2)}
+.dark .topbar .t span{color:var(--on-rebate2)}
+
+/* search */
+.search{margin:0 16px 4px;height:48px;border-radius:6px;background:var(--paper2);display:flex;align-items:center;gap:10px;padding:0 14px;color:var(--ink3);font-size:16px}
+.search .i{color:var(--ink2)}
+
+/* lists */
+.sect{display:flex;align-items:baseline;gap:8px;padding:22px 16px 6px}
+.sect h2{font-size:15px;line-height:20px;font-weight:600;color:var(--ink)}
+.sect .n{font-size:15px;color:var(--ink3);font-weight:500}
+.row{display:flex;align-items:center;gap:12px;padding:12px 16px;position:relative}
+.row::after{content:"";position:absolute;left:16px;right:0;bottom:0;height:1px;background:var(--rule)}
+.row:last-child::after{display:none}
+.row .main{flex:1;min-width:0}
+.row .l1{display:flex;align-items:center;gap:10px}
+.row .l2{font-size:15px;line-height:20px;color:var(--ink2);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .l3{font-size:15px;line-height:20px;color:var(--ink2);margin-top:1px;display:flex;align-items:center;gap:6px}
+.row .l3.late{color:var(--ink);font-weight:600}
+.plate{display:inline-block;font-weight:600;font-size:18px;line-height:20px;letter-spacing:.05em;border:1.5px solid var(--ink);border-radius:3px;padding:2px 6px 1px;color:var(--ink);background:#fff}
+.plate.sm{font-size:14px;line-height:16px;padding:1px 5px 0;border-width:1.25px}
+.prog8{display:flex;gap:2px}
+.prog8 i{width:10px;height:4px;background:var(--rule)}
+.prog8 i.on{background:var(--ink)}
+.unfinished{background:var(--paper2)}
+.unfinished .row::after{background:var(--paper3)}
+
+/* nav */
+.nav{position:absolute;left:0;right:0;bottom:24px;height:80px;display:flex;border-top:1px solid var(--rule);background:var(--paper)}
+.nav a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--ink2);font-size:13px;line-height:16px;font-weight:500;text-decoration:none}
+.nav a .ind{width:56px;height:32px;border-radius:8px;display:grid;place-items:center}
+.nav a.on{color:var(--ink);font-weight:600}
+.nav a.on .ind{background:var(--accent-wash);color:var(--accent)}
+.fab{position:absolute;right:16px;bottom:120px;height:56px;border-radius:14px;background:var(--ink);color:#fff;display:flex;align-items:center;gap:10px;padding:0 22px 0 18px;font-weight:600;font-size:17px;box-shadow:0 2px 4px rgba(19,21,23,.2),0 8px 20px -6px rgba(19,21,23,.4)}
+
+/* segmented */
+.seg-ctl{display:flex;border:1.5px solid var(--ink);border-radius:6px;overflow:hidden;height:44px}
+.seg-ctl button{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-weight:600;font-size:15px;color:var(--ink);position:relative}
+.seg-ctl button+button{border-left:1.5px solid var(--ink)}
+.seg-ctl button.on{background:var(--ink);color:#fff}
+.dark .seg-ctl{border-color:var(--rebate-rule)}
+.dark .seg-ctl button{color:var(--on-rebate)}
+.dark .seg-ctl button+button{border-left-color:var(--rebate-rule)}
+.dark .seg-ctl button.on{background:var(--on-rebate);color:var(--ink)}
+
+/* chips (damage types) */
+.chips{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.chip{height:48px;border:1.5px solid var(--outline);border-radius:4px;display:flex;align-items:center;justify-content:center;gap:4px;font-weight:500;font-size:15px;color:var(--ink)}
+.chip.on{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:600}
+.lbl{font-size:14px;line-height:18px;font-weight:600;color:var(--ink2)}
+.lbl em{font-style:normal;font-weight:500;color:var(--ink3)}
+
+/* sheet */
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--paper);color:var(--ink);border-radius:14px 14px 0 0;box-shadow:0 -2px 6px rgba(0,0,0,.18),0 -12px 32px -8px rgba(0,0,0,.45)}
+.dark .sheet .seg-ctl{border-color:var(--ink)}.dark .sheet .seg-ctl button{color:var(--ink)}.dark .sheet .seg-ctl button+button{border-left-color:var(--ink)}
+.dark .sheet .btn-primary{background:var(--ink);color:#fff}
+.handle{width:36px;height:4px;border-radius:2px;background:var(--outline);margin:10px auto 6px}
+
+/* camera + dark chrome */
+.edge{color:var(--on-rebate2)}
+.tag{position:absolute;display:flex;align-items:center;gap:6px;background:rgba(12,13,14,.78);color:var(--on-rebate);padding:4px 8px;border-radius:3px}
+.tag b{font-family:var(--f);font-weight:700;font-size:13px;letter-spacing:.06em}
+
+/* doc */
+body.doc{background:#E4E7E8;font-family:var(--f);color:var(--ink);-webkit-font-smoothing:antialiased}
+.doc-head{max-width:1320px;margin:0 auto;padding:48px 32px 8px}
+.doc-head h1{font-size:32px;line-height:38px;font-weight:600;letter-spacing:-.01em}
+.doc-head p{margin-top:10px;font-size:17px;line-height:26px;color:var(--ink2);max-width:72ch}
+.boards{max-width:1320px;margin:0 auto;padding:32px;display:grid;grid-template-columns:repeat(auto-fill,390px);gap:56px 48px;justify-content:start}
+.boards figure{margin:0}
+.boards figcaption{margin-top:16px;max-width:390px}
+.boards figcaption b{display:block;font-size:17px;line-height:22px;font-weight:600}
+.boards figcaption span{display:block;margin-top:4px;font-size:15px;line-height:22px;color:var(--ink2)}
+.boards figure.wide{grid-column:1/-1}
+.boards figure.wide figcaption{max-width:72ch}
+body.single{background:#E4E7E8;display:grid;place-items:center;min-height:100vh;padding:24px;font-family:var(--f)}
+
+.land{position:absolute;left:0;top:0;width:844px;height:390px;transform-origin:0 0;transform:translateX(390px) rotate(90deg);display:flex;background:var(--rebate)}
+.cam-left{width:128px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:14px 0 26px}
+.cam-orbit{display:flex;flex-direction:column;align-items:center;gap:6px}
+.cam-text{height:48px;display:flex;align-items:center;gap:6px;padding:0 12px;font-weight:600;font-size:16px;color:var(--on-rebate)}
+.cam-frame{width:520px;height:390px;position:relative;flex:none;overflow:hidden}
+.cam-title{left:50%;top:14px;transform:translateX(-50%);padding:6px 10px}
+.cam-title{flex-direction:column;align-items:center;gap:2px}.ct1{display:flex;gap:8px;align-items:center}.ct2{font-size:14px;line-height:18px;font-weight:500;color:var(--on-rebate2);white-space:nowrap}
+.cam-right{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:14px 0 30px}
+.cam-right-top{display:flex;gap:8px}
+.cam-toggle{height:48px;min-width:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:12px;font-weight:600;color:var(--on-rebate2);border-radius:6px}
+.cam-toggle.on{color:var(--on-rebate);background:var(--rebate3)}
+.shutter{width:80px;height:80px;border-radius:50%;border:4px solid var(--on-rebate);display:grid;place-items:center}
+.shutter i{width:62px;height:62px;border-radius:50%;background:var(--on-rebate)}
+.last{display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--on-rebate2)}
+.last svg{border-radius:2px;outline:1.5px solid var(--on-rebate2);outline-offset:2px}
+.land-g{bottom:0}
+.cust-li{display:flex;align-items:center;gap:12px;min-height:40px;font-size:18px;line-height:24px;color:var(--ink)}.cust-li .g{width:26px;height:26px}.cust-li b{font-weight:600}
+.sl-handle{position:absolute;width:48px;height:48px;border-radius:50%;background:#fff;color:var(--ink);display:flex;align-items:center;justify-content:center;gap:0;box-shadow:0 2px 8px rgba(0,0,0,.45)}
+.sl-handle .i{margin:0 -3px}
+.tgl{height:40px;border-radius:6px;border:1.5px solid var(--rebate-rule);display:flex;align-items:center;gap:6px;padding:0 14px;font-weight:600;font-size:15px;color:var(--on-rebate2)}
+.tgl.on{background:var(--rebate3);border-color:var(--rebate3);color:var(--on-rebate)}
+.found-h{padding:18px 16px 6px;font-size:14px;line-height:18px;font-weight:600;color:var(--on-rebate2)}
+.found{display:flex;align-items:center;gap:12px;margin:0 16px;min-height:52px;padding:0 4px 0 12px;border-top:1px solid var(--rebate-rule);font-size:16px;color:var(--on-rebate)}
+.found .g{width:24px;height:24px}
+.found b{font-weight:600}
+.found .i{color:var(--on-rebate2)}
+.strip{position:absolute;left:16px;right:16px;bottom:112px;display:flex;justify-content:space-between;padding-top:14px;border-top:1px solid var(--rebate-rule)}
+.fr{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--on-rebate2)}
+.fr svg.photo{border-radius:2px;opacity:.55}
+.fr.done svg.photo{opacity:1}
+.fr.now svg.photo{opacity:1;outline:2px solid var(--accent-dark);outline-offset:2px}
+.fr.now{color:var(--on-rebate)}
+.fr .st{position:absolute;right:-4px;top:-6px;width:18px;height:18px;border-radius:50%;background:var(--on-rebate);color:var(--ink);display:grid;place-items:center}
+.fr .st .i{width:12px;height:12px;stroke-width:3}
+.fr .st.dot{background:var(--new);border:2px solid var(--rebate)}
+
+.ev{width:1200px;height:800px;background:#fff;color:var(--ink);font-family:var(--f);padding:28px 32px 0;position:relative;box-shadow:0 0 0 1px rgba(19,21,23,.16),0 24px 48px -20px rgba(19,21,23,.35);-webkit-font-smoothing:antialiased}
+.ev-h{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:14px;border-bottom:2px solid var(--ink)}
+.ev-h h1{font-size:40px;line-height:44px;font-weight:700;letter-spacing:-.015em}
+.ev-meta{margin-top:6px;font-size:17px;line-height:22px;color:var(--ink2);display:flex;align-items:center;gap:6px}
+.ev-ag{text-align:right;display:flex;flex-direction:column;font-size:15px;line-height:20px;color:var(--ink2)}
+.ev-ag b{font-size:18px;line-height:22px;color:var(--ink);font-weight:600}
+.ev-pair{display:flex;gap:24px;margin-top:16px}
+.ev-pair figure{margin:0}
+.ev-lbl{display:flex;align-items:center;gap:12px;height:36px;font-size:16px;color:var(--ink2);font-weight:500}
+.ev-lbl b{font-size:20px;font-weight:700;letter-spacing:.06em;padding:3px 10px 2px;border-radius:2px}
+.ev-b{border:2px solid var(--ink);color:var(--ink)}
+.ev-a{background:var(--ink);color:#fff;border:2px solid var(--ink)}
+.rebate{background:var(--rebate);padding:6px 6px 0;margin-top:6px}
+.rebate .code{color:var(--on-rebate2);height:24px;display:flex;align-items:center;padding:0 2px;font-size:12px}
+.ev-cap{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:20px}
+.cap{display:flex;gap:12px;align-items:flex-start}
+.cap .g{width:28px;height:28px;margin-top:1px}
+.cap p{font-size:19px;line-height:27px;color:var(--ink2)}
+.cap b{color:var(--ink);font-weight:600}
+.ev-f{position:absolute;left:32px;right:32px;bottom:20px;display:flex;align-items:center;gap:20px;padding-top:14px;border-top:1px solid var(--rule);font-size:16px;color:var(--ink2)}
+.leg{display:flex;align-items:center;gap:6px;font-weight:500}
+.leg .g{width:24px;height:24px}
+.ev-f .code{color:var(--ink3)}
+</style></head>
+<body class="doc">
+<!--
+THESIS: CarCheck is an inspector's contact sheet. Photos are frames, metadata is film edge code, damage is grease pencil. It refuses the SaaS dashboard (cards, stat tiles, pills, gradients).
+OWN-WORLD: White paper, ink #131517, grey-card #F1F2F2 bands, one cyanotype blue #1F4E96 for action and selection only. Film-rebate black #0C0D0E around every photo screen. Damage marks: vermilion filled circle (new), white hollow square (existing), amber diamond (uncertain). Barlow for everything, with Barlow Semi Condensed edge codes. 1 dp hairlines, radii 2 to 6 dp, no cards.
+STORY: Walk the car, mark what is there, the customer signs, then on return compare frame against frame. The evidence explains itself.
+FIRST VIEWPORT: Rentals: search, Unfinished row with Resume, Due back rows with the plate as the largest text and inline Return, ink "New rental" FAB in thumb reach, 3-tab bar.
+FORM: candidate 7 of 7 (photographer's contact sheet and calibration kit), seed 7a1a22ca.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+-->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></symbol>
+<symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></symbol>
+<symbol id="i-camera" viewBox="0 0 24 24"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></symbol>
+<symbol id="i-car" viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+<symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+<symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+<symbol id="i-ellipsis-vertical" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></symbol>
+<symbol id="i-file-text" viewBox="0 0 24 24"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></symbol>
+<symbol id="i-focus" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/></symbol>
+<symbol id="i-key-round" viewBox="0 0 24 24"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></symbol>
+<symbol id="i-list-checks" viewBox="0 0 24 24"><path d="M13 5h8"/><path d="M13 12h8"/><path d="M13 19h8"/><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+<symbol id="i-rotate-ccw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></symbol>
+<symbol id="i-settings" viewBox="0 0 24 24"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="i-trash-2" viewBox="0 0 24 24"><path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+<symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><path d="M16 3.128a4 4 0 0 1 0 7.744"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><circle cx="9" cy="7" r="4"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+<symbol id="i-zap" viewBox="0 0 24 24"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></symbol>
+<symbol id="i-zap-off" viewBox="0 0 24 24"><path d="M10.768 5.111 13.44 2.44a1.5 1.5 0 012.474 1.561l-1.633 4.625"/><path d="m18.889 13.232.672-.672A1.5 1.5 0 0018.5 10h-2.844"/><path d="m2 2 20 20"/><path d="m7.94 7.94-3.5 3.499A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l5.5-5.5"/></symbol>
+<symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="i-skip-forward" viewBox="0 0 24 24"><path d="M21 4v16"/><path d="M6.029 4.285A2 2 0 0 0 3 6v12a2 2 0 0 0 3.029 1.715l9.997-5.998a2 2 0 0 0 .003-3.432z"/></symbol>
+<symbol id="i-type" viewBox="0 0 24 24"><path d="M12 4v16"/><path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2"/><path d="M9 20h6"/></symbol>
+<symbol id="scene" viewBox="0 0 400 300">
+<rect width="400" height="300" style="fill:var(--sky)"/>
+<rect y="46" width="400" height="124" style="fill:var(--wall)"/>
+<path d="M0 46H400M80 46V170M200 46V170M320 46V170" style="stroke:var(--wall-line)" stroke-width="1.5"/>
+<rect y="170" width="400" height="130" style="fill:var(--ground)"/>
+<path d="M0 278 400 262" style="stroke:var(--paint)" stroke-width="4"/>
+<ellipse cx="200" cy="238" rx="172" ry="10" style="fill:var(--shadow)"/>
+<path d="M38 206 40 174Q42 160 62 154L122 143Q150 110 178 103L262 101Q290 105 318 139L352 147Q364 151 364 171L362 206Q360 213 350 213L316 213A30 30 0 0 0 256 213L144 213A30 30 0 0 0 84 213L48 213Q38 213 38 206Z" style="fill:var(--body)"/>
+<path d="M130 143Q154 116 180 111L214 110 214 143ZM221 110 258 109Q282 113 304 139L221 143Z" style="fill:var(--glass)"/>
+<path d="M130 147V206M217 111V207M306 142 300 206M62 154 352 150" style="stroke:var(--seam)" fill="none" stroke-width="1.3"/>
+<path d="M188 160h14M272 160h14" style="stroke:var(--seam)" stroke-width="3" stroke-linecap="round"/>
+<path d="M42 167Q44 159 58 157L60 165ZM352 151Q362 155 362 165L354 165Z" style="fill:var(--lamp)"/>
+<circle cx="114" cy="214" r="25" style="fill:var(--tyre)"/><circle cx="114" cy="214" r="14" style="fill:var(--rim)"/>
+<circle cx="286" cy="214" r="25" style="fill:var(--tyre)"/><circle cx="286" cy="214" r="14" style="fill:var(--rim)"/>
+</symbol>
+<symbol id="topcar" viewBox="-50 -50 100 100">
+<path d="M-13 -8l-5 1v4h5M13 -8l5 1v4h-5" style="fill:var(--tc-body);stroke:var(--tc-line)" stroke-width="1.5" stroke-linejoin="round"/>
+<rect x="-13" y="-26" width="26" height="52" rx="8" style="fill:var(--tc-body);stroke:var(--tc-line)" stroke-width="1.5"/>
+<path d="M-10 -11H10L8 -4H-8ZM-8 13H8L10 18H-10Z" style="fill:var(--tc-glass)"/>
+<path d="M-8 -24h5M3 -24h5" style="stroke:var(--tc-line)" stroke-width="1.5" stroke-linecap="round"/>
+</symbol>
+<pattern id="hatch" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="2" height="4" fill="currentColor"/></pattern>
+</defs></svg>
+<header class="doc-head"><h1>CarCheck screen mockups</h1>
+<p>Six key screens in the committed direction (see DESIGN.md), aligned with docs/UX_FLOWS.md. All names, plates, agencies and photos are synthetic placeholders. Car photos are flat SVG stand-ins.</p></header>
+<main class="boards">
+<figure class="" id="a-home"><div class="phone">
+<div class="sb "><span class="num">13:32</span><span class="sb-r"><svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx=".5" fill="currentColor"/><rect x="5" y="5" width="3" height="7" rx=".5" fill="currentColor"/><rect x="10" y="2.5" width="3" height="9.5" rx=".5" fill="currentColor"/><rect x="15" y="0" width="3" height="12" rx=".5" fill="currentColor" opacity=".35"/></svg><svg width="26" height="12" viewBox="0 0 26 12"><rect x=".75" y=".75" width="21.5" height="10.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="3" width="14" height="6" rx="1" fill="currentColor"/><rect x="23.5" y="4" width="2" height="4" rx="1" fill="currentColor"/></svg></span></div>
+<header class="appbar"><h1>Rentals</h1><button class="icon-btn" aria-label="Settings"><svg class="i " aria-hidden="true"><use href="#i-settings"/></svg></button></header>
+<div class="search"><svg class="i s20" aria-hidden="true"><use href="#i-search"/></svg><span>Plate, name or R-number</span></div>
+<div class="sect"><h2>Unfinished</h2></div>
+<div class="unfinished">
+<div class="row"><div class="main">
+<div class="l1"><span class="plate num ">05-TL-62</span></div>
+<div class="l2">Fiat 500 · Carla Mendes</div>
+<div class="l3 "><span class="prog8"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class=""></i><i class=""></i><i class=""></i></span><span class="num">Inspection 5 of 8</span></div>
+</div><button class="btn btn-sm btn-tonal">Resume</button></div>
+</div>
+<div class="sect"><h2>Due back</h2><span class="n num">2</span></div>
+<div class="row"><div class="main">
+<div class="l1"><span class="plate num ">31-QM-07</span></div>
+<div class="l2">Renault Clio · João Oliveira</div>
+<div class="l3 late"><svg class="i s16" aria-hidden="true"><use href="#i-clock"/></svg><span class="num">Overdue · was due 11:30</span></div>
+</div><button class="btn btn-sm btn-secondary">Return</button></div>
+<div class="row"><div class="main">
+<div class="l1"><span class="plate num ">74-XR-19</span></div>
+<div class="l2">Seat Ibiza · Maria Keller</div>
+<div class="l3 "><span class="num">Today 17:00</span></div>
+</div><button class="btn btn-sm btn-secondary">Return</button></div>
+<div class="sect"><h2>Out</h2><span class="n num">5</span></div>
+<div class="row"><div class="main">
+<div class="l1"><span class="plate num ">12-BN-88</span></div>
+<div class="l2">Peugeot 208 · Tomás Ferreira</div>
+<div class="l3 "><span class="num">Due Sun 27 Sep, 10:00</span></div>
+</div><button class="btn btn-sm btn-secondary">Return</button></div>
+<button class="fab"><svg class="i " aria-hidden="true"><use href="#i-plus"/></svg>New rental</button>
+<nav class="nav"><a class="on"><span class="ind"><svg class="i " aria-hidden="true"><use href="#i-key-round"/></svg></span>Rentals</a><a><span class="ind"><svg class="i " aria-hidden="true"><use href="#i-car"/></svg></span>Vehicles</a><a><span class="ind"><svg class="i " aria-hidden="true"><use href="#i-users"/></svg></span>Customers</a></nav>
+<div class="gesture "><i></i></div>
+</div><figcaption><b>(a) Rentals home</b><span>What needs me now: Unfinished, Due back, Out (Returned sits below the fold). The plate is the largest text on each row because it is what staff read off the car. Return and Resume are inline. The one primary action, New rental, sits in thumb reach.</span></figcaption></figure>
+<figure class="" id="b-capture"><div class="phone dark">
+<div class="land">
+  <div class="cam-left">
+    <button class="icon-btn" aria-label="Close"><svg class="i " aria-hidden="true"><use href="#i-x"/></svg></button>
+    <div class="cam-orbit"><svg class="orbit on-dark" width="92" height="92" viewBox="-54 -54 108 108" role="img" aria-label="Angle 3 of 8, left side">
+<use href="#topcar" x="-50" y="-50" width="100" height="100"/><path d="M-11.69 -38.25A40 40 0 0 1 11.69 -38.25" class="seg done"/><path d="M-35.32 -18.78A40 40 0 0 1 -18.78 -35.32" class="seg done"/><path d="M-38.25 11.69A40 40 0 0 1 -38.25 -11.69" class="seg now"/><path d="M-18.78 35.32A40 40 0 0 1 -35.32 18.78" class="seg todo"/><path d="M11.69 38.25A40 40 0 0 1 -11.69 38.25" class="seg todo"/><path d="M35.32 18.78A40 40 0 0 1 18.78 35.32" class="seg todo"/><path d="M38.25 -11.69A40 40 0 0 1 38.25 11.69" class="seg todo"/><path d="M18.78 -35.32A40 40 0 0 1 35.32 -18.78" class="seg todo"/><circle cx="-47" cy="0" r="6.5" class="cam-halo"/><circle cx="-47" cy="0" r="3.5" class="cam-dot"/></svg><span class="code edge num">2 of 8 done</span></div>
+    <button class="cam-text"><svg class="i s20" aria-hidden="true"><use href="#i-skip-forward"/></svg>Skip</button>
+  </div>
+  <div class="cam-frame">
+    <svg class="photo ph-dark" viewBox="0 0 400 300" width="520" height="390" preserveAspectRatio="xMidYMid slice"><use href="#scene"/><g class="guide"><path d="M38 206 40 174Q42 160 62 154L122 143Q150 110 178 103L262 101Q290 105 318 139L352 147Q364 151 364 171L362 206Q360 213 350 213L48 213Q38 213 38 206Z" transform="translate(200 158) scale(1.04) translate(-200 -158)" fill="rgba(255,255,255,.12)" stroke="#0C0D0E" stroke-width="4.5" stroke-linejoin="round"/><path d="M38 206 40 174Q42 160 62 154L122 143Q150 110 178 103L262 101Q290 105 318 139L352 147Q364 151 364 171L362 206Q360 213 350 213L48 213Q38 213 38 206Z" transform="translate(200 158) scale(1.04) translate(-200 -158)" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></g></svg>
+    <svg class="corners" width="520" height="390" viewBox="0 0 520 390" style="position:absolute;inset:0"><path d="M40 14H14V40M480 14H506V40M40 376H14V350M480 376H506V350" fill="none" stroke="#0C0D0E" stroke-width="6" stroke-linecap="square"/><path d="M40 14H14V40M480 14H506V40M40 376H14V350M480 376H506V350" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="square"/>
+<g transform="translate(260 195)"><circle r="11" fill="none" stroke="#0C0D0E" stroke-width="4"/><circle r="11" fill="none" stroke="#fff" stroke-width="1.75"/><path d="M-18 0H-6M6 0H18M0 -18V-6M0 6V18" stroke="#0C0D0E" stroke-width="4"/><path d="M-18 0H-6M6 0H18M0 -18V-6M0 6V18" stroke="#fff" stroke-width="1.75"/></g></svg>
+    <div class="tag cam-title"><div class="ct1"><b>LEFT</b><span class="code num" style="color:var(--on-rebate)">3 of 8 · Before</span></div><div class="ct2">Stand level with the middle of the car and fit it inside the outline.</div></div>
+  </div>
+  <div class="cam-right">
+    <div class="cam-right-top">
+      <button class="cam-toggle"><svg class="i s20" aria-hidden="true"><use href="#i-zap"/></svg><span>Auto</span></button>
+      <button class="cam-toggle on"><svg class="i s20" aria-hidden="true"><use href="#i-focus"/></svg><span>Guide</span></button>
+    </div>
+    <button class="shutter" aria-label="Take photo"><i></i></button>
+    <div class="last"><svg class="photo ph-dark" viewBox="0 0 400 300" width="64" height="48" preserveAspectRatio="xMidYMid slice"><use href="#scene"/></svg><span class="code num">Front left</span></div>
+  </div>
+  <div class="gesture g-dark land-g"><i></i></div>
+</div>
+</div><figcaption><b>(b) Guided pick-up capture, landscape</b><span>Exterior angles are landscape-only (UX §3), so the artboard shows the phone held sideways. Chrome stays on solid rebate-black rails and never over the frame. The top-down orbit shows progress; the shutter sits under the right thumb.</span></figcaption></figure>
+<figure class="" id="c-mark"><div class="phone dark">
+<div class="sb sb-dark"><span class="num">10:21</span><span class="sb-r"><svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx=".5" fill="currentColor"/><rect x="5" y="5" width="3" height="7" rx=".5" fill="currentColor"/><rect x="10" y="2.5" width="3" height="9.5" rx=".5" fill="currentColor"/><rect x="15" y="0" width="3" height="12" rx=".5" fill="currentColor" opacity=".35"/></svg><svg width="26" height="12" viewBox="0 0 26 12"><rect x=".75" y=".75" width="21.5" height="10.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="3" width="14" height="6" rx="1" fill="currentColor"/><rect x="23.5" y="4" width="2" height="4" rx="1" fill="currentColor"/></svg></span></div>
+<div class="topbar"><button class="icon-btn" aria-label="Back"><svg class="i " aria-hidden="true"><use href="#i-arrow-left"/></svg></button><div class="t"><b>Left · Pick-up</b><span>Tap the photo to mark damage</span></div><button class="icon-btn" aria-label="List of marks"><svg class="i " aria-hidden="true"><use href="#i-list-checks"/></svg></button></div>
+<div style="position:relative;margin-top:4px">
+<svg class="photo ph-dark" viewBox="0 0 400 300" width="390" height="292.5" preserveAspectRatio="xMidYMid slice"><use href="#scene"/><path d="M158 177l28-5" stroke="#8A9095" stroke-width="1.4" stroke-linecap="round"/><path d="M345 188l11 3M343 194l13 2M346 199l9 1" stroke="#8D9398" stroke-width="1.3" stroke-linecap="round"/><g class="mk"><circle cx="172" cy="174" r="22" fill="none" stroke="var(--ink)" stroke-width="5.5"/><circle cx="172" cy="174" r="22" fill="none" stroke="#fff" stroke-width="2.5"/>
+<rect x="176.5562" y="147.4438" width="22" height="22" rx="2" fill="#fff" stroke="var(--ink)" stroke-width="2.5"/><text x="187.5562" y="163.0438" class="mk-t" fill="var(--ink)">1</text></g><g class="mk"><circle cx="350" cy="194" r="17" fill="none" stroke="var(--ink)" stroke-width="5.5"/><circle cx="350" cy="194" r="17" fill="none" stroke="#fff" stroke-width="2.5"/>
+<rect x="351.0207" y="170.9793" width="22" height="22" rx="2" fill="#fff" stroke="var(--ink)" stroke-width="2.5"/><text x="362.0207" y="186.5793" class="mk-t" fill="var(--ink)">2</text></g><defs><clipPath id="lp"><circle cx="262" cy="112" r="50"/></clipPath></defs>
+<g clip-path="url(#lp)"><g transform="translate(262 112) scale(2.4) translate(-350 -194)"><use href="#scene"/><path d="M158 177l28-5" stroke="#8A9095" stroke-width="1.4" stroke-linecap="round"/><path d="M345 188l11 3M343 194l13 2M346 199l9 1" stroke="#8D9398" stroke-width="1.3" stroke-linecap="round"/></g></g>
+<circle cx="262" cy="112" r="50" fill="none" stroke="#0C0D0E" stroke-width="5"/><circle cx="262" cy="112" r="50" fill="none" stroke="#fff" stroke-width="2.5"/>
+<path d="M250 112H258M266 112H274M262 100V108M262 116V124" stroke="#fff" stroke-width="2"/></svg>
+</div>
+<div class="code edge num" style="padding:8px 16px 0;display:flex;justify-content:space-between"><span>Left · 3/8 · Pick-up · 24 Sep 2026 10:04</span><span>2 marks</span></div>
+<div class="sheet" style="height:436px">
+  <div class="handle"></div>
+  <div style="display:flex;align-items:center;gap:12px;padding:2px 4px 0 16px">
+    <svg class="g" style="width:30px;height:30px" viewBox="-13 -13 26 26"><rect x="-10.5" y="-10.5" width="21" height="21" rx="2" fill="#fff" stroke="var(--ink)" stroke-width="2.2"/><text y="4.6" class="mk-t" fill="var(--ink)">2</text></svg>
+    <div style="flex:1"><div style="font-size:20px;line-height:26px;font-weight:600">Damage 2</div><div style="font-size:14px;line-height:18px;color:var(--ink2)">Existing · already there at pick-up</div></div>
+    <button class="icon-btn" aria-label="Delete damage 2"><svg class="i " aria-hidden="true"><use href="#i-trash-2"/></svg></button>
+  </div>
+  <div style="padding:14px 16px 0"><div class="chips">
+    <button class="chip">Scratch</button><button class="chip">Dent</button><button class="chip">Crack</button><button class="chip">Chip</button>
+    <button class="chip on"><svg class="i s18" aria-hidden="true"><use href="#i-check"/></svg>Scuff</button><button class="chip">Broken</button><button class="chip">Missing</button><button class="chip">Other</button>
+  </div></div>
+  <div style="padding:18px 16px 0"><div class="lbl">Severity <em>(optional)</em></div>
+  <div class="seg-ctl" style="margin-top:8px"><button>Minor</button><button>Moderate</button><button>Severe</button></div></div>
+  <div style="display:flex;gap:8px;padding:12px 8px 0"><button class="btn btn-quiet" style="height:48px"><svg class="i s20" aria-hidden="true"><use href="#i-plus"/></svg>Note</button><button class="btn btn-quiet" style="height:48px"><svg class="i s20" aria-hidden="true"><use href="#i-plus"/></svg>Close-up photo</button></div>
+  <div style="position:absolute;left:16px;right:16px;bottom:36px"><button class="btn btn-primary" style="width:100%">Done</button></div>
+  <div class="gesture "><i></i></div>
+</div>
+</div><figcaption><b>(c) Marking damage on a pick-up photo</b><span>A loupe lifts above the finger while a pin is dragged, so the finger never hides the damage. Existing damage uses the hollow square. The sheet is the UX quick sheet: type (the only input that matters), optional severity, note, close-up, Done.</span></figcaption></figure>
+<figure class="" id="d-review"><div class="phone">
+<div class="sb "><span class="num">10:31</span><span class="sb-r"><svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx=".5" fill="currentColor"/><rect x="5" y="5" width="3" height="7" rx=".5" fill="currentColor"/><rect x="10" y="2.5" width="3" height="9.5" rx=".5" fill="currentColor"/><rect x="15" y="0" width="3" height="12" rx=".5" fill="currentColor" opacity=".35"/></svg><svg width="26" height="12" viewBox="0 0 26 12"><rect x=".75" y=".75" width="21.5" height="10.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="3" width="14" height="6" rx="1" fill="currentColor"/><rect x="23.5" y="4" width="2" height="4" rx="1" fill="currentColor"/></svg></span></div>
+<header style="display:flex;align-items:center;gap:12px;height:64px;padding:0 20px;border-bottom:1px solid var(--rule)">
+  <span style="width:36px;height:36px;border-radius:4px;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:700;font-size:17px">A</span>
+  <div><div style="font-size:18px;line-height:22px;font-weight:600">Atlântico Rent</div><div style="font-size:14px;line-height:18px;color:var(--ink2)">Faro Airport</div></div>
+</header>
+<div style="padding:22px 20px 0">
+  <h1 style="font-size:28px;line-height:34px;font-weight:600;letter-spacing:-.01em">Please review your rental</h1>
+  <div style="display:flex;align-items:center;gap:10px;margin-top:10px;font-size:19px;line-height:26px">Peugeot 208 <span class="plate num ">12-BN-88</span></div>
+  <div class="num" style="margin-top:4px;font-size:17px;line-height:24px;color:var(--ink2)">Thu 24 Sep, 10:30 until Sun 27 Sep, 10:00</div>
+</div>
+<div style="padding:24px 20px 0">
+  <h2 style="font-size:21px;line-height:26px;font-weight:600;padding-bottom:10px;border-bottom:1.5px solid var(--ink)">Condition at pick-up</h2>
+  <div style="display:flex;gap:16px;margin-top:14px">
+    <figure><svg class="photo ph-dark" viewBox="0 0 400 300" width="171" height="128" preserveAspectRatio="xMidYMid slice" style="border-radius:2px"><g ><use href="#scene"/><path d="M158 177l28-5" stroke="#8A9095" stroke-width="1.4" stroke-linecap="round"/><path d="M345 188l11 3M343 194l13 2M346 199l9 1" stroke="#8D9398" stroke-width="1.3" stroke-linecap="round"/></g><g class="mk"><circle cx="166" cy="180" r="26" fill="none" stroke="var(--ink)" stroke-width="11.55"/><circle cx="166" cy="180" r="26" fill="none" stroke="#fff" stroke-width="5.25"/>
+<rect x="161.2846" y="138.5154" width="46.2" height="46.2" rx="4.2" fill="#fff" stroke="var(--ink)" stroke-width="5.25"/><text x="184.3846" y="171.2754" class="mk-t" style="font-size:29.400000000000002px" fill="var(--ink)">1</text></g><g class="mk"><circle cx="346" cy="194" r="22" fill="none" stroke="var(--ink)" stroke-width="11.55"/><circle cx="346" cy="194" r="22" fill="none" stroke="#fff" stroke-width="5.25"/>
+<rect x="338.45619999999997" y="155.34380000000002" width="46.2" height="46.2" rx="4.2" fill="#fff" stroke="var(--ink)" stroke-width="5.25"/><text x="361.5562" y="188.1038" class="mk-t" style="font-size:29.400000000000002px" fill="var(--ink)">2</text></g></svg><figcaption style="font-size:15px;line-height:20px;color:var(--ink2);margin-top:6px">Left side</figcaption></figure>
+    <figure><svg class="photo ph-dark" viewBox="0 0 400 300" width="171" height="128" preserveAspectRatio="xMidYMid slice" style="border-radius:2px"><g transform="translate(400 0) scale(-1 1)"><use href="#scene"/><path d="M158 177l28-5" stroke="#8A9095" stroke-width="1.4" stroke-linecap="round"/><path d="M345 188l11 3M343 194l13 2M346 199l9 1" stroke="#8D9398" stroke-width="1.3" stroke-linecap="round"/></g><g class="mk"><circle cx="96" cy="184" r="24" fill="none" stroke="var(--ink)" stroke-width="11.55"/><circle cx="96" cy="184" r="24" fill="none" stroke="#fff" stroke-width="5.25"/>
+<rect x="89.87039999999999" y="143.92960000000002" width="46.2" height="46.2" rx="4.2" fill="#fff" stroke="var(--ink)" stroke-width="5.25"/><text x="112.9704" y="176.6896" class="mk-t" style="font-size:29.400000000000002px" fill="var(--ink)">3</text></g></svg><figcaption style="font-size:15px;line-height:20px;color:var(--ink2);margin-top:6px">Right side</figcaption></figure>
+  </div>
+  <ul style="list-style:none;margin-top:12px">
+    <li class="cust-li"><svg class="g" viewBox="-13 -13 26 26"><rect x="-10.5" y="-10.5" width="21" height="21" rx="2" fill="#fff" stroke="var(--ink)" stroke-width="2.2"/><text y="4.6" class="mk-t" fill="var(--ink)">1</text></svg><span><b>Scratch</b> · left front door</span></li>
+    <li class="cust-li"><svg class="g" viewBox="-13 -13 26 26"><rect x="-10.5" y="-10.5" width="21" height="21" rx="2" fill="#fff" stroke="var(--ink)" stroke-width="2.2"/><text y="4.6" class="mk-t" fill="var(--ink)">2</text></svg><span><b>Scuff</b> · rear bumper, left</span></li>
+    <li class="cust-li"><svg class="g" viewBox="-13 -13 26 26"><rect x="-10.5" y="-10.5" width="21" height="21" rx="2" fill="#fff" stroke="var(--ink)" stroke-width="2.2"/><text y="4.6" class="mk-t" fill="var(--ink)">3</text></svg><span><b>Chip</b> · right front wing</span></li>
+  </ul>
+  <h2 style="font-size:21px;line-height:26px;font-weight:600;padding:22px 0 10px;border-bottom:1.5px solid var(--ink)">Agreement</h2>
+  <p style="font-size:19px;line-height:28px;margin-top:12px">You confirm that you have seen the car with our staff and that the damage above is all the damage present when you collect it.</p>
+</div>
+<div style="position:absolute;left:0;right:0;bottom:0;background:var(--paper);border-top:1px solid var(--rule);padding:4px 20px 40px">
+  <button class="btn btn-quiet" style="height:44px;padding:0;font-size:16px;color:var(--ink2);font-weight:500">Something wrong? Ask staff.</button>
+  <button class="btn btn-accent" style="width:100%;height:56px;font-size:18px">Sign agreement</button>
+  <div class="gesture "><i></i></div>
+</div>
+</div><figcaption><b>(d) Customer review, hand-off mode</b><span>Customer mode swaps the stepper for the agency identity and uses about 1.25× type and polite second person. It shows the same existing-damage marks the customer is agreeing to. The accent-blue Sign agreement button marks the one binding step.</span></figcaption></figure>
+<figure class="" id="d2-sign"><div class="phone">
+<div class="sb "><span class="num">10:33</span><span class="sb-r"><svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx=".5" fill="currentColor"/><rect x="5" y="5" width="3" height="7" rx=".5" fill="currentColor"/><rect x="10" y="2.5" width="3" height="9.5" rx=".5" fill="currentColor"/><rect x="15" y="0" width="3" height="12" rx=".5" fill="currentColor" opacity=".35"/></svg><svg width="26" height="12" viewBox="0 0 26 12"><rect x=".75" y=".75" width="21.5" height="10.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="3" width="14" height="6" rx="1" fill="currentColor"/><rect x="23.5" y="4" width="2" height="4" rx="1" fill="currentColor"/></svg></span></div>
+<div class="topbar"><button class="icon-btn" aria-label="Back to the agreement"><svg class="i " aria-hidden="true"><use href="#i-arrow-left"/></svg></button><div class="t"><b>Back to agreement</b></div></div>
+<div style="padding:10px 20px 0">
+  <h1 style="font-size:28px;line-height:34px;font-weight:600;letter-spacing:-.01em">Sign above the line</h1>
+  <p style="margin-top:8px;font-size:18px;line-height:26px;color:var(--ink2)">You are signing the rental agreement for the Peugeot 208, 12-BN-88, including 3 existing damages.</p>
+</div>
+<div style="position:absolute;left:12px;right:12px;top:236px;height:384px;background:var(--paper2);border-radius:6px">
+  <svg width="366" height="384" viewBox="0 0 366 384" style="position:absolute;inset:0">
+    <path d="M24 270H342" stroke="var(--ink)" stroke-width="1.5"/>
+    <path d="M26 246l14 14M40 246l-14 14" stroke="var(--ink3)" stroke-width="2" stroke-linecap="round"/>
+    <g transform="translate(0 130)"><path d="M58 118C62 84 80 60 86 78C92 98 70 128 64 122C58 114 84 88 102 92C116 95 104 118 112 116C122 113 128 96 138 98C146 100 140 118 150 116C160 113 166 90 176 94C186 98 176 120 190 116C204 112 206 82 220 70C230 62 236 74 226 96C218 114 214 126 226 118C240 108 250 100 262 104C276 108 286 112 310 100" fill="none" stroke="var(--ink)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></g>
+  </svg>
+  <div style="position:absolute;left:24px;top:282px;right:24px">
+    <div style="font-size:18px;line-height:24px;font-weight:600">Tomás Ferreira</div>
+    <div class="num" style="font-size:16px;line-height:22px;color:var(--ink2)">Thursday 24 September 2026</div>
+  </div>
+</div>
+<div style="position:absolute;left:20px;right:20px;top:632px;font-size:15px;line-height:20px;color:var(--ink2)">Once you confirm, the agreement and your signature are saved as they are and cannot be changed.</div>
+<div style="position:absolute;left:20px;right:20px;bottom:40px;display:flex;gap:12px">
+  <button class="btn btn-secondary" style="height:56px;flex:0 0 118px"><svg class="i s20" aria-hidden="true"><use href="#i-rotate-ccw"/></svg>Clear</button>
+  <button class="btn btn-accent" style="height:56px;flex:1;font-size:18px">Confirm signature</button>
+</div>
+<div class="gesture "><i></i></div>
+</div><figcaption><b>(d2) Signature pad</b><span>A full-screen pad with a baseline, the name and date printed under it, and Clear. Confirm signature is the finalize action; the line above it says plainly that the signed record is frozen.</span></figcaption></figure>
+<figure class="" id="e-compare"><div class="phone dark">
+<div class="sb sb-dark"><span class="num">17:08</span><span class="sb-r"><svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx=".5" fill="currentColor"/><rect x="5" y="5" width="3" height="7" rx=".5" fill="currentColor"/><rect x="10" y="2.5" width="3" height="9.5" rx=".5" fill="currentColor"/><rect x="15" y="0" width="3" height="12" rx=".5" fill="currentColor" opacity=".35"/></svg><svg width="26" height="12" viewBox="0 0 26 12"><rect x=".75" y=".75" width="21.5" height="10.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="3" width="14" height="6" rx="1" fill="currentColor"/><rect x="23.5" y="4" width="2" height="4" rx="1" fill="currentColor"/></svg></span></div>
+<div class="topbar"><button class="icon-btn" aria-label="Back"><svg class="i " aria-hidden="true"><use href="#i-arrow-left"/></svg></button><div class="t"><b>Left · 3 of 8</b><span>Maria Keller · 74-XR-19</span></div><button class="icon-btn" aria-label="More"><svg class="i " aria-hidden="true"><use href="#i-ellipsis-vertical"/></svg></button></div>
+<div style="padding:4px 16px 12px"><div class="seg-ctl"><button>Side by side</button><button>Overlay</button><button class="on">Slider</button></div></div>
+<div class="cmp" style="position:relative;width:390px;height:292.5px;overflow:hidden">
+  <div style="position:absolute;inset:0"><svg class="photo ph-after" viewBox="0 0 400 300" width="390" height="292.5" preserveAspectRatio="xMidYMid slice"><use href="#scene"/><path d="M158 177l28-5" stroke="#8C9195" stroke-width="1.4" stroke-linecap="round"/><ellipse cx="262" cy="182" rx="13" ry="8" fill="#C4C7C8"/><path d="M251 181q11 7 22 0" stroke="#8E9396" stroke-width="1.4" fill="none"/><g class="mk"><circle cx="262" cy="182" r="21" fill="none" stroke="#fff" stroke-width="6"/><circle cx="262" cy="182" r="21" fill="none" stroke="var(--new)" stroke-width="3"/>
+<circle cx="276.8491" cy="167.1509" r="12" fill="var(--new)" stroke="#fff" stroke-width="2.5"/><text x="276.8491" y="171.7509" class="mk-t" fill="#fff">1</text></g></svg></div>
+  <div style="position:absolute;left:0;top:0;bottom:0;width:180px;overflow:hidden"><svg class="photo ph-white" viewBox="0 0 400 300" width="390" height="292.5" preserveAspectRatio="xMidYMid slice"><use href="#scene"/><path d="M158 177l28-5" stroke="#8C9195" stroke-width="1.4" stroke-linecap="round"/><g class="mk"><circle cx="172" cy="174" r="22" fill="none" stroke="var(--ink)" stroke-width="5.5"/><circle cx="172" cy="174" r="22" fill="none" stroke="#fff" stroke-width="2.5"/>
+<rect x="176.5562" y="147.4438" width="22" height="22" rx="2" fill="#fff" stroke="var(--ink)" stroke-width="2.5"/><text x="187.5562" y="163.0438" class="mk-t" fill="var(--ink)">1</text></g></svg></div>
+  <div style="position:absolute;top:0;bottom:0;left:179px;width:2px;background:#fff;box-shadow:0 0 0 1px rgba(12,13,14,.5)"></div>
+  <div class="sl-handle" style="left:156px;top:122.25px"><svg class="i s18" aria-hidden="true"><use href="#i-chevron-left"/></svg><svg class="i s18" aria-hidden="true"><use href="#i-chevron-right"/></svg></div>
+  <div class="tag" style="left:8px;top:8px"><b>BEFORE</b><span class="code num" style="color:var(--on-rebate2)">12 Sep 09:41</span></div>
+  <div class="tag" style="right:8px;top:8px"><b>AFTER</b><span class="code num" style="color:var(--on-rebate2)">Today 17:05</span></div>
+</div>
+<div style="display:flex;gap:8px;padding:12px 16px 0">
+  <button class="tgl on"><svg class="i s18" aria-hidden="true"><use href="#i-check"/></svg>Markers</button><button class="tgl">Existing</button>
+</div>
+<div class="found-h">On this angle</div>
+<div class="found"><svg class="g" viewBox="-13 -13 26 26"><circle r="11" fill="var(--new)"/><text y="4.6" class="mk-t" fill="#fff">1</text></svg><div style="flex:1"><b>New 1</b> · Dent, left rear door</div><svg class="i s20" aria-hidden="true"><use href="#i-chevron-right"/></svg></div>
+<div class="found"><svg class="g" viewBox="-13 -13 26 26"><rect x="-10.5" y="-10.5" width="21" height="21" rx="2" fill="#fff" stroke="var(--ink)" stroke-width="2.2"/><text y="4.6" class="mk-t" fill="var(--ink)">1</text></svg><div style="flex:1"><b>Existing 1</b> · Scratch, left front door</div><svg class="i s20" aria-hidden="true"><use href="#i-chevron-right"/></svg></div>
+<div class="strip">
+<div class="fr done"><svg viewBox="0 0 400 300" width="38" height="28.5" class="photo ph-white"><use href="#scene"/></svg><span class="code num">1</span><i class="st"><svg class="i s16" aria-hidden="true"><use href="#i-check"/></svg></i></div><div class="fr done"><svg viewBox="0 0 400 300" width="38" height="28.5" class="photo ph-white"><use href="#scene"/></svg><span class="code num">2</span><i class="st"><svg class="i s16" aria-hidden="true"><use href="#i-check"/></svg></i></div><div class="fr now"><svg viewBox="0 0 400 300" width="38" height="28.5" class="photo ph-white"><use href="#scene"/></svg><span class="code num">3</span><i class="st dot"></i></div><div class="fr todo"><svg viewBox="0 0 400 300" width="38" height="28.5" class="photo ph-after"><use href="#scene"/></svg><span class="code num">4</span></div><div class="fr todo"><svg viewBox="0 0 400 300" width="38" height="28.5" class="photo ph-after"><use href="#scene"/></svg><span class="code num">5</span></div><div class="fr todo"><svg viewBox="0 0 400 300" width="38" height="28.5" class="photo ph-after"><use href="#scene"/></svg><span class="code num">6</span></div><div class="fr todo"><svg viewBox="0 0 400 300" width="38" height="28.5" class="photo ph-after"><use href="#scene"/></svg><span class="code num">7</span></div><div class="fr todo"><svg viewBox="0 0 400 300" width="38" height="28.5" class="photo ph-after"><use href="#scene"/></svg><span class="code num">8</span></div>
+</div>
+<div style="position:absolute;left:16px;right:16px;bottom:36px;display:flex;gap:10px">
+  <button class="btn btn-primary" style="flex:1.35;height:56px"><svg class="i " aria-hidden="true"><use href="#i-plus"/></svg>Mark new damage</button>
+  <button class="btn btn-secondary" style="flex:1;height:56px">Next angle<svg class="i s20" aria-hidden="true"><use href="#i-arrow-right"/></svg></button>
+</div>
+<div class="gesture g-dark"><i></i></div>
+</div><figcaption><b>(e) Comparison, slider mode</b><span>The mode switch is always visible. Each marker stays on its own layer: existing 1 on BEFORE, new 1 on AFTER. The filmstrip shows reviewed (tick), current (blue outline) and new-damage (red dot) angles. Mark new damage is the primary action.</span></figcaption></figure>
+<figure class="wide" id="f-evidence"><div class="ev">
+  <header class="ev-h">
+    <div>
+      <h1>Left side</h1>
+      <div class="ev-meta num">New damage found at return · Seat Ibiza 1.0 TSI <span class="plate num sm">74-XR-19</span> · Rental R-0418 · Maria Keller</div>
+    </div>
+    <div class="ev-ag"><b>Atlântico Rent</b><span>Faro Airport</span><span class="num">Evidence 1 of 2</span></div>
+  </header>
+  <div class="ev-pair">
+    <figure>
+      <div class="ev-lbl"><b class="ev-b">BEFORE</b><span class="num">Pick-up · Sat 12 Sep 2026, 09:41</span></div>
+      <div class="rebate"><svg class="photo ph-white" viewBox="0 0 400 300" width="552" height="414" preserveAspectRatio="xMidYMid slice"><use href="#scene"/><path d="M158 177l28-5" stroke="#8C9195" stroke-width="1.4" stroke-linecap="round"/><g class="mk"><circle cx="172" cy="174" r="22" fill="none" stroke="var(--ink)" stroke-width="5.5"/><circle cx="172" cy="174" r="22" fill="none" stroke="#fff" stroke-width="2.5"/>
+<rect x="176.5562" y="147.4438" width="22" height="22" rx="2" fill="#fff" stroke="var(--ink)" stroke-width="2.5"/><text x="187.5562" y="163.0438" class="mk-t" fill="var(--ink)">1</text></g><g class="mk"><circle cx="262" cy="182" r="21" fill="none" stroke="#fff" stroke-width="6" stroke-dasharray="9 6"/><circle cx="262" cy="182" r="21" fill="none" stroke="var(--new)" stroke-width="3" stroke-dasharray="9 6"/>
+<circle cx="276.8491" cy="167.1509" r="12" fill="#fff" stroke="var(--new)" stroke-width="2.5" stroke-dasharray="4 3"/><text x="276.8491" y="171.7509" class="mk-t" fill="var(--new)">1</text></g></svg><div class="code num">Left · 3/8 · Before · 12.09.2026 09:41:07</div></div>
+    </figure>
+    <figure>
+      <div class="ev-lbl"><b class="ev-a">AFTER</b><span class="num">Return · Thu 24 Sep 2026, 17:05</span></div>
+      <div class="rebate"><svg class="photo ph-after" viewBox="0 0 400 300" width="552" height="414" preserveAspectRatio="xMidYMid slice"><use href="#scene"/><path d="M158 177l28-5" stroke="#8C9195" stroke-width="1.4" stroke-linecap="round"/><ellipse cx="262" cy="182" rx="13" ry="8" fill="#C4C7C8"/><path d="M251 181q11 7 22 0" stroke="#8E9396" stroke-width="1.4" fill="none"/><g class="mk"><circle cx="262" cy="182" r="21" fill="none" stroke="#fff" stroke-width="6"/><circle cx="262" cy="182" r="21" fill="none" stroke="var(--new)" stroke-width="3"/>
+<circle cx="276.8491" cy="167.1509" r="12" fill="var(--new)" stroke="#fff" stroke-width="2.5"/><text x="276.8491" y="171.7509" class="mk-t" fill="#fff">1</text></g></svg><div class="code num">Left · 3/8 · After · 24.09.2026 17:05:32</div></div>
+    </figure>
+  </div>
+  <div class="ev-cap">
+    <div class="cap"><svg class="g" viewBox="-13 -13 26 26"><circle r="11" fill="var(--new)"/><text y="4.6" class="mk-t" fill="#fff">1</text></svg><p><b>New 1 · Dent, left rear door.</b> About 6 cm, paint intact. Not visible at pick-up; the dashed ring on BEFORE marks the same area.</p></div>
+    <div class="cap"><svg class="g" viewBox="-13 -13 26 26"><rect x="-10.5" y="-10.5" width="21" height="21" rx="2" fill="#fff" stroke="var(--ink)" stroke-width="2.2"/><text y="4.6" class="mk-t" fill="var(--ink)">1</text></svg><p><b>Existing 1 · Scratch, left front door.</b> Already there at pick-up and listed in the agreement signed on 12 Sep 2026.</p></div>
+  </div>
+  <footer class="ev-f">
+    <span class="leg"><svg class="g" viewBox="-13 -13 26 26"><circle r="11" fill="var(--new)"/><text y="4.6" class="mk-t" fill="#fff">1</text></svg>New</span><span class="leg"><svg class="g" viewBox="-13 -13 26 26"><circle r="11" fill="#fff" stroke="var(--new)" stroke-width="2.2" stroke-dasharray="4 3"/><text y="4.6" class="mk-t" fill="var(--new)">1</text></svg>Same area before</span><span class="leg"><svg class="g" viewBox="-13 -13 26 26"><rect x="-10.5" y="-10.5" width="21" height="21" rx="2" fill="#fff" stroke="var(--ink)" stroke-width="2.2"/><text y="4.6" class="mk-t" fill="var(--ink)">1</text></svg>Existing</span><span class="leg"><svg class="g" viewBox="-14 -14 28 28"><rect x="-9.5" y="-9.5" width="19" height="19" rx="1.5" transform="rotate(45)" fill="var(--unc)" stroke="var(--ink)" stroke-width="1.8"/><text y="4.2" class="mk-t" style="font-size:11px" fill="var(--ink)">1?</text></svg>Uncertain</span>
+    <span class="code num" style="margin-left:auto">CarCheck · R-0418 · generated 24.09.2026 17:12 · original photos unmodified</span>
+  </footer>
+</div><figcaption><b>(f) Exported evidence image</b><span>One image per damaged angle, shown at 40% of a 3000×2000 export. BEFORE is an outlined label and AFTER a solid one; new damage is a filled circle on AFTER and a dashed ring on BEFORE. Captions and a shape legend let it stand alone on WhatsApp or a black-and-white printout.</span></figcaption></figure>
+</main>
+</body></html>
