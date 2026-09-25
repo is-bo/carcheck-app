@@ -84,6 +84,7 @@ export function reportInput(p: Partial<DamageReportInput> = {}): DamageReportInp
     damages: [],
     evidence: [],
     returnPhotos: [],
+    pickupPhotos: [],
     contracts: [],
     generatedAt: T0 + 3 * 86_400_000,
     tzOffsetMin: TZ,

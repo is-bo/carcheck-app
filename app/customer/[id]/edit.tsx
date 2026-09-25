@@ -3,9 +3,10 @@ import { TriangleAlert } from 'lucide-react-native';
 
 import { getCustomer } from '@/data/repos';
 import { CustomerForm, useLiveQuery } from '@/features/entities';
-import { Button, EmptyState, Screen, SkeletonRows } from '@/ui';
+import { Button, EmptyState, Screen, SkeletonRows, useNoScreenshots } from '@/ui';
 
 export default function EditCustomerScreen() {
+  useNoScreenshots('customer-edit');
   const { id } = useLocalSearchParams<{ id: string }>();
   const query = useLiveQuery(() => getCustomer(id), ['customer'] as const);
 

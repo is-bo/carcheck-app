@@ -63,7 +63,7 @@ export function SegmentedControl<T extends string>({
   }));
   const counterStyle = useAnimatedStyle(() => ({ transform: [{ translateX: -x.get() }] }));
 
-  const border = tone === 'rebate' ? colors.divider : colors.text;
+  const border = tone === 'rebate' ? colors.outline : colors.text;
   const fill = colors.primary;
   const onFill = colors.onPrimary;
 

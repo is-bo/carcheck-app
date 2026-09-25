@@ -128,11 +128,15 @@ async function loadAnglePhoto(tx: SqlExecutor, photoId: Id): Promise<PhotoRow> {
   return row;
 }
 
-async function assertCloseup(tx: SqlExecutor, rentalId: Id, closeupId: Id | null): Promise<Id | null> {
+/** A close-up belongs to the same rental and phase as its mark (a pick-up close-up is never return evidence). */
+async function assertCloseup(tx: SqlExecutor, rentalId: Id, phase: Phase, closeupId: Id | null): Promise<Id | null> {
   if (closeupId === null) return null;
-  const row = await tx.getFirstAsync<{ rental_id: string; kind: string }>('SELECT rental_id, kind FROM photo WHERE id = ?', [closeupId]);
-  if (!row || row.rental_id !== rentalId || row.kind !== 'damage_closeup') {
-    throw new ValidationError('The close-up must be a close-up photo of this rental', 'closeupPhotoId');
+  const row = await tx.getFirstAsync<{ rental_id: string; kind: string; phase: string }>(
+    'SELECT rental_id, kind, phase FROM photo WHERE id = ?',
+    [closeupId],
+  );
+  if (!row || row.rental_id !== rentalId || row.kind !== 'damage_closeup' || row.phase !== phase) {
+    throw new ValidationError('The close-up must be a close-up photo of this rental, taken at the same inspection', 'closeupPhotoId');
   }
   return closeupId;
 }
@@ -169,7 +173,7 @@ export function addDamage(input: NewDamageInput): Promise<Damage> {
       );
       beforePhotoId = pair?.id ?? null;
     }
-    const closeup = await assertCloseup(tx, photo.rental_id, input.closeupPhotoId ?? null);
+    const closeup = await assertCloseup(tx, photo.rental_id, photo.phase, input.closeupPhotoId ?? null);
 
     const identityId = newId();
     await tx.runAsync('INSERT INTO vehicle_damage (id, vehicle_id, created_at, updated_at) VALUES (?, ?, ?, ?)', [
@@ -214,7 +218,7 @@ export function updateDamage(id: Id, patch: DamagePatch): Promise<Damage> {
     if (patch.locationLabel !== undefined) set('location_label', cleanText(patch.locationLabel));
     if (patch.note !== undefined) set('note', cleanText(patch.note));
     if (markerJson !== undefined) set('marker_json', markerJson);
-    if (patch.closeupPhotoId !== undefined) set('closeup_photo_id', await assertCloseup(tx, current.rentalId, patch.closeupPhotoId));
+    if (patch.closeupPhotoId !== undefined) set('closeup_photo_id', await assertCloseup(tx, current.rentalId, current.foundPhase, patch.closeupPhotoId));
 
     let movedFrom: DamageSequence | null = null;
     if (patch.status !== undefined && patch.status !== current.status) {

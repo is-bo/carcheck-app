@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, type ImageStyle, type StyleProp } from 'react-native';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { Archive, ArchiveRestore, Car, FileText, Share2, SquarePen, Trash2, TriangleAlert } from 'lucide-react-native';
@@ -14,7 +14,9 @@ import {
   type DataEntity,
 } from '@/data/repos';
 import { damageTypeLabel } from '@/domain/damage';
-import type { GeneratedArtifact, KnownDamageItem } from '@/domain/types';
+import type { KnownDamageItem, Photo, VehicleDocument } from '@/domain/types';
+import { shareContractPdf } from '@/features/contract/contractPdf';
+import { usePhotoUri } from '@/features/inspection/photoFiles';
 import {
   crossAgent,
   OverflowButton,
@@ -73,7 +75,6 @@ export default function VehicleDetailScreen() {
 
   const { vehicle } = detail;
   const listShape = { vehicle, out: detail.out, lastRentalAt: null };
-  const photoRel = vehicle.photo?.path ?? detail.latestPhoto?.file.path ?? null;
   const willArchive = detail.history.length > 0 || detail.knownDamage.length > 0;
   const referenceByRental = new Map(detail.history.map((h) => [h.rental.id, h.rental.reference]));
 
@@ -124,9 +125,11 @@ export default function VehicleDetailScreen() {
     }
   }
 
-  async function shareDocument(artifact: GeneratedArtifact) {
+  async function shareDocument(artifact: VehicleDocument) {
     try {
-      await shareGeneratedArtifact(artifact, referenceByRental.get(artifact.rentalId) ?? null);
+      // Contracts go through ensureContractPdf: a PDF made before a void is re-rendered with its VOID mark.
+      if (artifact.kind === 'contract_pdf' && artifact.contractId) await shareContractPdf(artifact.contractId);
+      else await shareGeneratedArtifact(artifact, referenceByRental.get(artifact.rentalId) ?? null);
     } catch (e) {
       showToast(e instanceof Error ? e.message : "Couldn't share this file.");
     }
@@ -162,13 +165,7 @@ export default function VehicleDetailScreen() {
       }
     >
       <View style={styles.hero}>
-        {photoRel ? (
-          <Image source={{ uri: resolveFileUri(photoRel) }} style={styles.photo} contentFit="cover" />
-        ) : (
-          <View style={[styles.photo, styles.photoPlaceholder]}>
-            <Icon icon={Car} size={32} color={palette.ink3} />
-          </View>
-        )}
+        <HeroPhoto vehiclePhotoPath={vehicle.photo?.path ?? null} latestPhoto={detail.latestPhoto} />
         <View style={styles.heroBody}>
           <PlateFrame plate={vehicle.plate} />
           <Text variant="bodySmall" tone="secondary" style={styles.status}>
@@ -203,7 +200,7 @@ export default function VehicleDetailScreen() {
           {detail.knownDamage.map((k) => (
             <ListRow
               key={k.vehicleDamage.id}
-              leading={<Image source={{ uri: resolveFileUri(k.latestPhoto.file.path) }} style={styles.damageThumb} contentFit="cover" />}
+              leading={<Thumb photo={k.latestPhoto} style={styles.damageThumb} />}
               title={damageTypeLabel(k.latest.type)}
               subtitle={`Found ${formatDate(k.firstFoundAt)}`}
               trailing={<Button label="Mark repaired" variant="quiet" onPress={() => handleResolve(k)} />}
@@ -233,17 +230,38 @@ export default function VehicleDetailScreen() {
             <ListRow
               key={doc.id}
               leading={<Icon icon={FileText} />}
-              title={doc.kind === 'contract_pdf' ? 'Signed contract' : 'Damage report'}
-              subtitle={formatDate(doc.generatedAt)}
+              title={documentTitle(doc)}
+              subtitle={[referenceByRental.get(doc.rentalId), formatDate(doc.generatedAt)].filter(Boolean).join(' · ')}
               trailing={<Icon icon={Share2} />}
               onPress={() => shareDocument(doc)}
-              accessibilityLabel={`Share ${doc.kind === 'contract_pdf' ? 'signed contract' : 'damage report'}`}
+              accessibilityLabel={`Share ${documentTitle(doc).toLowerCase()}`}
             />
           ))}
         </ListSection>
       ) : null}
     </Screen>
   );
+}
+
+/** Small cached copies only: rental photos are 12 MP originals. */
+function Thumb({ photo, style }: { photo: Photo; style: StyleProp<ImageStyle> }) {
+  const uri = usePhotoUri(photo, 'thumb');
+  return uri ? <Image source={{ uri }} style={style} contentFit="cover" /> : <View style={style} />;
+}
+
+function HeroPhoto({ vehiclePhotoPath, latestPhoto }: { vehiclePhotoPath: string | null; latestPhoto: Photo | null }) {
+  if (vehiclePhotoPath) return <Image source={{ uri: resolveFileUri(vehiclePhotoPath) }} style={styles.photo} contentFit="cover" />;
+  if (latestPhoto) return <Thumb photo={latestPhoto} style={styles.photo} />;
+  return (
+    <View style={[styles.photo, styles.photoPlaceholder]}>
+      <Icon icon={Car} size={32} color={palette.ink3} />
+    </View>
+  );
+}
+
+function documentTitle(doc: VehicleDocument): string {
+  if (doc.kind !== 'contract_pdf') return 'Damage report';
+  return doc.contractVoided ? 'Voided contract' : 'Signed contract';
 }
 
 const styles = StyleSheet.create({

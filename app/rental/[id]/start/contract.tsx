@@ -8,7 +8,7 @@ import { BLOCKER_MESSAGES, type Blocker } from '@/domain/rentalLifecycle';
 import { ContractView } from '@/features/contract/ContractView';
 import { usePreparedContract } from '@/features/contract/usePreparedContract';
 import { StartFlowScreen, useExitStartFlow } from '@/features/inspection/StartFlowScreen';
-import { rentalHref, startEntryHref, startHref } from '@/features/inspection/startFlow';
+import { startEntryHref, startHref } from '@/features/inspection/startFlow';
 import { ActionFooter, Banner, Button, EmptyState, PlateFrame, plural, SkeletonRows, Text } from '@/ui';
 import { layout } from '@/ui/theme/tokens';
 
@@ -39,7 +39,7 @@ export default function ContractReviewStep() {
         body={contract.error instanceof Error ? contract.error.message : 'Try again.'}
         action={
           signed ? (
-            <Button label="Open rental" onPress={() => exit({ toast: null, to: rentalHref(id) })} />
+            <Button label="Open rental" onPress={() => exit({ toast: null, toRental: id })} />
           ) : (
             <Button label="Go to that step" onPress={() => router.dismissTo(startEntryHref(id))} />
           )

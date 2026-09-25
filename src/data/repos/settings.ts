@@ -137,6 +137,7 @@ export type PrefKey =
   | 'ghostOpacity'
   | 'saveAsProfile'
   | 'backupReminderSnoozedUntil'
+  | 'overlayHoldHintShown'
   | (string & {});
 
 export function getPref<T>(key: PrefKey): Promise<T | null> {

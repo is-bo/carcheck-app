@@ -55,31 +55,35 @@ Row anatomy: plate (largest text, since it is what they read off the car), then 
 | `app/(tabs)/vehicles.tsx` | Vehicles list | Status: Available / Out; filter Archived |
 | `app/(tabs)/customers.tsx` | Customers list | Search; filter Archived |
 | `app/rental/new.tsx` | (no UI) | Creates draft rental, replaces to `start/vehicle` |
-| `app/rental/[id]/index.tsx` | Rental detail | Draft → redirects to its current step |
+| `app/rental/[id]/index.tsx` | Rental detail | Draft, re-sign or return in progress → opens its flow on arrival; after ✕ from a flow it stays and offers Resume / Continue |
 | `app/rental/[id]/start/_layout.tsx` | Start flow shell | Stepper header, tab bar hidden |
+| `app/rental/[id]/start/index.tsx` | (no UI) | Resume entry: replaces itself with the draft's current step |
 | `app/rental/[id]/start/vehicle.tsx` | 1 Vehicle | Pick or quick-create |
 | `app/rental/[id]/start/customer.tsx` | 2 Customer | Pick or inline entry |
 | `app/rental/[id]/start/capture.tsx` | 3 Inspect: camera | BEFORE guided capture |
 | `app/rental/[id]/start/condition.tsx` | 3 Inspect: condition | Angle grid, existing damage, known-damage carry-over |
 | `app/rental/[id]/start/details.tsx` | 4 Details | Mileage, fuel, expected return, special terms |
 | `app/rental/[id]/start/contract.tsx` | 5 Sign: employee review | Rendered contract |
-| `app/rental/[id]/start/sign.tsx` | 5 Sign: customer view | Read → sign → thank-you (internal states) |
-| `app/rental/[id]/return/_layout.tsx` | Return flow shell | Stepper header |
-| `app/rental/[id]/return/capture.tsx` | 1 Inspect | AFTER capture with BEFORE ghost |
+| `app/rental/[id]/start/sign.tsx` | 5 Sign: customer view | Read → sign → thank-you (internal states), then rental detail with "Share contract" |
+| `app/rental/[id]/return/_layout.tsx` | Return flow shell | Stack of the return steps |
+| `app/rental/[id]/return/index.tsx` | (no UI) | Start/resume entry: lands on the step the return stopped at |
+| `app/rental/[id]/return/capture.tsx` | 1 Inspect | AFTER capture with BEFORE ghost; `?angle=` retakes one angle and returns to Compare |
 | `app/rental/[id]/return/compare.tsx` | 2 Compare | `?angle=front_left`; marking happens here |
 | `app/rental/[id]/return/details.tsx` | 3 Details | Return mileage, fuel, notes, Complete |
 | `app/rental/[id]/report.tsx` | 4 Report | Generation progress → report and share |
-| `app/rental/[id]/annotate/[photoId].tsx` | Marker editor | BEFORE photos and extra shots |
-| `app/rental/[id]/contract.tsx` | Signed contract viewer | Read-only; lists voided versions |
+| `app/rental/[id]/annotate/[photoId].tsx` | Marker editor | BEFORE photos and extra shots; Next photo / Done |
+| `app/rental/[id]/contract.tsx` | Signed contract viewer | Read-only; voided versions; Share PDF; Check; Fix contract |
 | `app/rental/[id]/void.tsx` | Void & re-sign | Explainer + destructive confirm |
-| `app/media/[mediaId].tsx` | Full-screen viewer | Zoom, share; used everywhere |
-| `app/camera.tsx` | Single-shot camera (modal) | `?purpose=closeup|id_doc|vehicle` |
 | `app/vehicle/new.tsx` · `app/vehicle/[id]/index.tsx` · `app/vehicle/[id]/edit.tsx` | Vehicle | Create (modal), detail, edit |
 | `app/customer/new.tsx` · `app/customer/[id]/index.tsx` · `app/customer/[id]/edit.tsx` | Customer | Create (modal), detail, edit |
 | `app/settings/index.tsx` | Settings | Grouped list |
-| `app/settings/agency.tsx` · `contract-template.tsx` · `report.tsx` · `backup.tsx` · `restore.tsx` · `storage.tsx` · `about.tsx` | Settings pages | See §7, §9 |
+| `app/settings/agency.tsx` · `contract-template.tsx` · `report.tsx` · `storage.tsx` · `about.tsx` | Settings pages | See §7 |
+| `app/settings/backup/index.tsx` · `backup/create.tsx` · `backup/restore.tsx` | Backup & restore | See §9 |
+| `app/dev/kit.tsx` | UI kit gallery | Development only |
 
-**Count: 40 route files, 35 screens.** (The root, tab and two flow `_layout`s and `new.tsx` are plumbing.)
+Not routes: the single-shot camera (close-ups, ID documents, vehicle photo) is a full-screen modal (`SingleShotCamera`), and full-screen photo views are modals inside their screens (evidence viewer, customer photo zoom).
+
+**Count: 42 route files.** (The root, tab and two flow `_layout`s, the two flow entries and `new.tsx` are plumbing; `dev/kit` is not shipped UI.)
 
 ## 2. START flow
 
@@ -96,7 +100,7 @@ Row anatomy: plate (largest text, since it is what they read off the car), then 
 │ ▰▱▱▱▱                            │
 │ [🔍 Plate, make or model       ] │
 │ + Add "AB-123" as new vehicle    │  ← only when search has no exact match
-│ RECENT                           │
+│ ALL VEHICLES                     │
 │ AB-123-CD  Renault Clio · White  │
 │ KL-555-AA  Toyota Yaris  Out·Thu │  ← disabled, shows who has it
 └──────────────────────────────────┘
@@ -239,7 +243,7 @@ Guided capture is covered in §3. After the last angle, the flow lands on **Cond
 │ └──────────────────────────────┘ │
 │ [◐ Markers] [◌ Existing]          │ ← toggles
 │ [▢✓][▢✓][▢●][▢ ][▢ ][▢ ][▢ ][▢ ] │ ← filmstrip: ✓ reviewed, ● new damage
-│ [Mark new damage]   [Next angle →]│
+│ [Mark damage]       [Next angle →]│
 └──────────────────────────────────┘
 ```
 - **Angle switcher:** a filmstrip of pair thumbnails in walk order, plus horizontal swipe on the image area when not zoomed. Badges: ● means has new damage, ✓ means viewed, hatched means one side is missing. Unpaired extras come after the 8 angles.
@@ -248,7 +252,8 @@ Guided capture is covered in §3. After the last angle, the flow lands on **Cond
 - **Overlay:** AFTER sits on top of BEFORE. An **opacity slider** appears above the bottom bar, full width, labelled "Before" at the left end and "After" at the right. Tapping either label snaps to 0% or 100%. **Press and hold the image** to flip instantly to BEFORE, which is the fastest blink test. **Align** in the ⋮ menu is optional: it enters nudge mode (drag and pinch the AFTER layer, then Reset or Done), and the alignment is saved per pair and used by Overlay and Slider.
 - **Slider:** a vertical divider with a 48dp round handle, starting at 50%. Only the handle drags the divider. Elsewhere, one finger pans when zoomed and pinch zooms both layers together.
 - **Markers:** they are always attached to their own photo. New/uncertain markers live on AFTER, and existing markers on BEFORE. In Overlay and Slider, each marker draws only where its layer is visible. **Markers** toggles all markers. **Existing** also projects existing-damage rings onto AFTER as grey dashed context, which is approximate, so it is labelled "approx." at first use.
-- **Mark new damage** is the prominent primary button. It puts the current mode into marking: a banner reads "Tap the damage on the AFTER photo" with a **Done** button. Taps map to AFTER coordinates in every mode. In Side by side, only the AFTER pane accepts pins, and a matching dashed ring appears live on BEFORE. The quick sheet is the same as in §4.
+- **Mark damage** (was "Mark new damage"; shortened to fit 360 dp) is the prominent primary button; on a completed return it reads **Edit return** and asks before reopening. It puts the current mode into marking: a banner reads "Tap the damage on the AFTER photo" with a **Done** button. Taps map to AFTER coordinates in every mode. In Side by side, only the AFTER pane accepts pins, and a matching dashed ring appears live on BEFORE. The quick sheet is the same as in §4.
+- **Retaken photo with marks** (return only): the marks move to the new photo unchanged, so the angle shows a banner "This photo was retaken. Check each mark still sits on the damage; move it if not." with **Marks look right**. The flag is stored on the photo; it also ends when every mark on it is deleted.
 - **Next angle →** marks the angle as viewed and advances. On the last angle it becomes **Continue**. Unviewed angles do not block; the Details step shows "2 angles not reviewed" with a link back.
 - **Landscape:** the image takes the full height. The right rail holds, top to bottom: the mode switch, toggles, and Mark/Next. The filmstrip moves into the ⋮ angle picker.
 
@@ -258,7 +263,7 @@ Guided capture is covered in §3. After the last angle, the flow lands on **Cond
 - **Return mileage** is not prefilled; the start mileage is shown as a hint and the dashboard thumbnail sits alongside. If the value is below the start mileage, an inline warning appears but nothing blocks.
 - **Fuel** and **Notes** are both optional.
 - The summary line reads "3 new · 1 uncertain · 8 of 8 angles compared".
-- The primary button is **Complete return**, with no dialog. The return can be reopened (§8), and all evidence can be regenerated.
+- The primary button is **Complete return**. It asks first only when something is open, in this order: no outside photo, angles not photographed (**Take photos** / **Skip them**), angles not compared (**Compare now** / **They look the same**), then retaken photos whose marks are unchecked ("Check the marks on Front": **Check marks** / **Complete anyway**). The summary line links to the same place. The return can be reopened (§8), and all evidence can be regenerated.
 
 **`report.tsx`: generating state.**
 - Progress with honest steps: "Building evidence image 2 of 3…" then "Creating report PDF…". It cannot be cancelled, but it is safe: if the app is killed, generation re-runs when the rental is opened.
@@ -373,7 +378,7 @@ Loading uses skeleton rows in lists and never a central spinner over content. Th
 | Marker sheet | Damage 3 · Severity (optional) · + Note · + Close-up photo · Done |
 | Hand-off | Hand to customer · (customer) "Please review your rental" · Sign agreement · "Sign above the line" · Clear · Confirm signature · "Thank you, Jane. You're all set. Please hand the phone back." |
 | Snackbars | "Rental started · Share contract" · "Damage 3 deleted · Undo" · "Draft saved" (on ✕) |
-| Return | Start return · Mark new damage · Next angle · "Tap the damage on the AFTER photo" · Complete return |
+| Return | Start return · Mark damage · Next angle · "Tap the damage on the AFTER photo" · Complete return |
 | Report | "No new damage found" · Share report PDF · Share all images · Print |
 | Labels | BEFORE / AFTER (images) · Existing / New / Uncertain (damage) · Out / Available / Archived |
 

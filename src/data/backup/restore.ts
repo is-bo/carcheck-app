@@ -16,11 +16,13 @@
  *   new root and falls back to `previous` on its own; if booting throws, the old pointer is
  *   written back here and the old data reopened. The old root stays as the 14-day safety copy.
  */
+import { contractHtmlProblems } from '@/domain/contract';
 import type { BackupCounts, RelPath } from '@/domain/types';
 
 import { checkIntegrity, getSchemaVersion, migrate, SCHEMA_VERSION } from '../migrations';
 import { pointerForRestore, type DataPointer } from '../pointer';
-import { getRecordCounts, listFileRefs } from '../repos/storage';
+import { getRecordCounts, insertBackupLog, listFileRefs } from '../repos/storage';
+import type { SqlExecutor } from '../sql';
 import { asBackupError, BackupError, cancelled, throwIfAborted } from './errors';
 import {
   checkArchiveEntries,
@@ -92,6 +94,15 @@ function mapUnzipError(e: unknown): BackupError {
     }
   }
   return asBackupError(e, 'restore');
+}
+
+/** Signed contracts are printed in a WebView, so a backup may only carry HTML the renderer could have written. */
+async function unsafeContracts(db: SqlExecutor): Promise<string[]> {
+  const rows = await db.getAllAsync<{ id: string; rendered_html: string }>('SELECT id, rendered_html FROM signed_contract');
+  return rows.flatMap((r) => {
+    const problems = contractHtmlProblems(r.rendered_html);
+    return problems.length > 0 ? [`contract ${r.id}: ${problems.slice(0, 3).join(', ')}`] : [];
+  });
 }
 
 function notABackup(message: string, cause?: unknown): BackupError {
@@ -220,6 +231,10 @@ export async function prepareRestoreWith(
       if (!countsEqual(await getRecordCounts(db), manifest.counts)) {
         throw new BackupError('corrupted', 'restore', 'Record counts differ from the manifest');
       }
+      const unsafe = await unsafeContracts(db);
+      if (unsafe.length > 0) {
+        throw new BackupError('corrupted', 'restore', `${unsafe.length} signed contracts contain content CarCheck never writes`, { details: unsafe });
+      }
       const unlisted = unlistedReferences(await listFileRefs(db), manifest);
       if (unlisted.length > 0) {
         throw new BackupError('incomplete', 'restore', `${unlisted.length} referenced files are not in the backup`, { details: unlisted });
@@ -314,7 +329,7 @@ function rollbackPointer(deps: BackupDeps, before: DataPointer): DataPointer {
 
 /**
  * Makes the staged root live. Throws `switch_failed` when the old data had to be put back (the
- * error copy says nothing changed); on success the restore is logged in the new database.
+ * error copy says nothing changed). The restore is logged in the new database before the switch.
  */
 export async function commitRestoreWith(deps: BackupDeps, preview: RestorePreview): Promise<RestoreOutcome> {
   const { roots, live, env } = deps;
@@ -325,6 +340,28 @@ export async function commitRestoreWith(deps: BackupDeps, preview: RestorePrevie
   const liveName = live.liveRoot().name;
   if (!before || before.root !== liveName || before.root === preview.rootName) {
     throw new BackupError('failed', 'restore', 'The data pointer does not match the open data');
+  }
+
+  // Logged inside the restored database before it goes live: a crash right after the switch
+  // then still leaves "Last restore" correct. A rollback discards the staged root with it.
+  try {
+    const staged = await live.openDb(roots.rootLocation(preview.rootName).dbDir, { name: SNAPSHOT_FILE, pragmas: true });
+    try {
+      const at = env.now();
+      await insertBackupLog(staged, `restore-${at}-${preview.rootName}`, {
+        kind: 'restore',
+        at,
+        fileName: preview.fileName,
+        byteSize: preview.archiveBytes,
+        schemaVersion: preview.backup.schemaVersion,
+        backupCreatedAt: preview.backup.createdAt,
+        counts: preview.backup.counts,
+      });
+    } finally {
+      await staged.close();
+    }
+  } catch (e) {
+    console.warn('[restore] could not log the restore', e);
   }
 
   try {
@@ -354,19 +391,6 @@ export async function commitRestoreWith(deps: BackupDeps, preview: RestorePrevie
     throw switchFailed('The restored data failed its first check');
   }
 
-  try {
-    await live.recordLog({
-      kind: 'restore',
-      at: env.now(),
-      fileName: preview.fileName,
-      byteSize: preview.archiveBytes,
-      schemaVersion: preview.backup.schemaVersion,
-      backupCreatedAt: preview.backup.createdAt,
-      counts: preview.backup.counts,
-    });
-  } catch (e) {
-    console.warn('[restore] could not log the restore', e);
-  }
   try {
     deps.fs.remove(preview.stagingDir);
   } catch (e) {

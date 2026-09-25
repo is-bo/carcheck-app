@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, X } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Modal, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DataError, getRental, getVehicle, listInspectionAngles, updateRentalDetails, type RentalDetailsPatch } from '@/data/repos';
 import { DASHBOARD_ANGLE_KEY } from '@/domain/types';
@@ -11,7 +12,9 @@ import {
   fuelSegment,
   parseMileage,
   presetOf,
+  atHour,
   RETURN_PRESETS,
+  RETURN_TIMES,
   returnAtPreset,
   shiftDays,
   shiftTime,
@@ -67,6 +70,7 @@ export default function DetailsStep() {
   const [zoom, setZoom] = useState(false);
   const [busy, setBusy] = useState(false);
   const [now] = useState(() => Date.now());
+  const insets = useSafeAreaInsets();
 
   // First load (render-time adjustment): stored values, mileage prefilled from the last return.
   const vehicleReady = !!rental.data && (!rental.data.vehicleId || vehicle.data?.id === rental.data.vehicleId || !!vehicle.error);
@@ -90,16 +94,31 @@ export default function DetailsStep() {
 
   // Autosave: every change is written shortly after the last edit.
   const edited = useRef(false);
+  const pending = useRef(false);
+  const save = () => {
+    pending.current = false;
+    const p = patch();
+    if (p) updateRentalDetails(id, p).catch(() => undefined);
+  };
   useEffect(() => {
     if (!loaded || !edited.current) return;
-    const t = setTimeout(() => {
-      const p = patch();
-      if (p) updateRentalDetails(id, p).catch(() => undefined);
-    }, AUTOSAVE_MS);
+    pending.current = true;
+    const t = setTimeout(save, AUTOSAVE_MS);
     return () => clearTimeout(t);
-    // patch() reads exactly these values.
+    // save() reads exactly these values.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded, mileage, fuel, returnAt, terms, id]);
+  // Leaving the step (Back, step sheet, ✕) inside the autosave delay still saves the last edit.
+  const saveRef = useRef(save);
+  useEffect(() => {
+    saveRef.current = save;
+  });
+  useEffect(
+    () => () => {
+      if (pending.current) saveRef.current();
+    },
+    [],
+  );
   const touch = <T,>(set: (v: T) => void) => (v: T) => {
     edited.current = true;
     set(v);
@@ -113,6 +132,7 @@ export default function DetailsStep() {
     }
     setBusy(true);
     try {
+      pending.current = false;
       await updateRentalDetails(id, p);
       router.push(startHref(id, 'contract'));
     } catch (e) {
@@ -145,7 +165,7 @@ export default function DetailsStep() {
           <Modal visible={zoom && !!dashFull} transparent={false} animationType="fade" onRequestClose={() => setZoom(false)} statusBarTranslucent>
             <View style={styles.zoom}>
               {dashFull ? <Image source={{ uri: dashFull }} style={styles.fill} contentFit="contain" accessibilityLabel="Dashboard photo" /> : null}
-              <View style={styles.zoomClose}>
+              <View style={[styles.zoomClose, { top: insets.top + 8 }]}>
                 <IconButton icon={X} accessibilityLabel="Close" color={palette.onRebate} onPress={() => setZoom(false)} />
               </View>
             </View>
@@ -266,14 +286,23 @@ function ReturnPicker({ open, initial, onClose, onSet }: { open: boolean; initia
     <BottomSheet
       open={open}
       onClose={onClose}
-      snapPoints={[360]}
+      snapPoints={[480]}
       accessibilityLabel="Pick the return date"
       header={<Text variant="titleL">Expected return</Text>}
       footer={<Button label="Set return date" onPress={() => onSet(at)} fullWidth />}
     >
       <View style={styles.picker}>
         {stepper('Day', formatDateLong(at), () => setAt((a) => shiftDays(a, -1)), () => setAt((a) => shiftDays(a, 1)), 'day')}
+        <View style={styles.chips}>
+          <Chip label="−1 week" selected={false} onPress={() => setAt((a) => shiftDays(a, -7))} />
+          <Chip label="+1 week" selected={false} onPress={() => setAt((a) => shiftDays(a, 7))} />
+        </View>
         {stepper('Time', formatTime(at), () => setAt((a) => shiftTime(a, -1)), () => setAt((a) => shiftTime(a, 1)), 'time')}
+        <View style={styles.chips}>
+          {RETURN_TIMES.map((t) => (
+            <Chip key={t.label} label={t.label} selected={formatTime(at) === formatTime(atHour(at, t.hour))} onPress={() => setAt((a) => atHour(a, t.hour))} />
+          ))}
+        </View>
       </View>
     </BottomSheet>
   );
@@ -290,5 +319,5 @@ const styles = StyleSheet.create({
   picker: { paddingHorizontal: 16, gap: 16, paddingTop: 4 },
   stepper: { flexDirection: 'row', alignItems: 'center', backgroundColor: light.surfaceTint, borderRadius: radii.md },
   zoom: { flex: 1, backgroundColor: palette.rebate },
-  zoomClose: { position: 'absolute', top: 40, left: 8 },
+  zoomClose: { position: 'absolute', left: 8 },
 });

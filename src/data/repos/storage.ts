@@ -73,13 +73,18 @@ function mapBackupLog(r: BackupLogRow): BackupLogEntry {
   };
 }
 
+/** Also used on a staged restore database, before it goes live. */
+export async function insertBackupLog(db: SqlExecutor, id: Id, entry: Omit<BackupLogEntry, 'id'>): Promise<void> {
+  await db.runAsync(
+    'INSERT INTO backup_log (id, kind, at, file_name, byte_size, schema_version, backup_created_at, counts_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    [id, entry.kind, entry.at, entry.fileName, entry.byteSize, entry.schemaVersion, entry.backupCreatedAt, entry.counts ? JSON.stringify(entry.counts) : null],
+  );
+}
+
 export function recordBackupLog(entry: Omit<BackupLogEntry, 'id'>): Promise<BackupLogEntry> {
   return write(['backup'], async ({ tx, newId }) => {
     const id: Id = newId();
-    await tx.runAsync(
-      'INSERT INTO backup_log (id, kind, at, file_name, byte_size, schema_version, backup_created_at, counts_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, entry.kind, entry.at, entry.fileName, entry.byteSize, entry.schemaVersion, entry.backupCreatedAt, entry.counts ? JSON.stringify(entry.counts) : null],
-    );
+    await insertBackupLog(tx, id, entry);
     return { ...entry, id };
   });
 }

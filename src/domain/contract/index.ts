@@ -9,7 +9,7 @@ export {
 } from './damageList';
 export { escapeHtml, formatContractDate, formatContractDateTime, formatDistance, formatFuel } from './format';
 export type { ContractBlock, ContractInline, ContractRenderResult } from './render';
-export { contractHtmlReferences, inspectContractTemplate, renderContractTemplate } from './render';
+export { contractHtmlProblems, contractHtmlReferences, inspectContractTemplate, renderContractTemplate } from './render';
 export {
   isStarterTemplate,
   STARTER_TEMPLATE_BODY,

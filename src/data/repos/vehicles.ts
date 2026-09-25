@@ -4,7 +4,7 @@
  */
 import type {
   CapturedImage,
-  GeneratedArtifact,
+  VehicleDocument,
   Id,
   Vehicle,
   VehicleDetail,
@@ -154,8 +154,9 @@ export function getVehicleDetail(id: Id): Promise<VehicleDetail> {
     const history = (
       await queryRentalItems(db, "r.vehicle_id = ? AND r.status <> 'draft'", [id], 'ORDER BY coalesce(r.activated_at, r.created_at) DESC')
     ).map((r) => mapRentalItem(r, now));
-    const documents = await db.getAllAsync<ArtifactRow>(
-      "SELECT a.* FROM generated_artifact a JOIN rental r ON r.id = a.rental_id WHERE r.vehicle_id = ? " +
+    const documents = await db.getAllAsync<ArtifactRow & { x_voided: number }>(
+      'SELECT a.*, EXISTS (SELECT 1 FROM contract_void cv WHERE cv.contract_id = a.contract_id) AS x_voided ' +
+        'FROM generated_artifact a JOIN rental r ON r.id = a.rental_id WHERE r.vehicle_id = ? ' +
         "AND a.kind IN ('contract_pdf', 'report_pdf') ORDER BY a.generated_at DESC",
       [id],
     );
@@ -170,7 +171,7 @@ export function getVehicleDetail(id: Id): Promise<VehicleDetail> {
       out: await loadOutInfo(db, id),
       history,
       knownDamage: await loadKnownDamage(db, id, null),
-      documents: documents.map((a): GeneratedArtifact => mapArtifact(a)),
+      documents: documents.map((a): VehicleDocument => ({ ...mapArtifact(a), contractVoided: a.x_voided === 1 })),
       latestPhoto: latestPhoto ? mapPhoto(latestPhoto) : null,
     };
   });

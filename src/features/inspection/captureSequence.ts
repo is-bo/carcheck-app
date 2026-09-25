@@ -44,7 +44,20 @@ export function initialTarget(s: CaptureProgressState, requested?: AngleKey | nu
   if (requested && isExteriorAngle(requested)) return { kind: 'angle', angleKey: requested };
   if (requested === DASHBOARD_ANGLE_KEY) return { kind: 'dashboard' };
   const next = missingAngles(s)[0];
-  return next ? { kind: 'angle', angleKey: next } : afterExterior(s);
+  if (next) return { kind: 'angle', angleKey: next };
+  // Every angle skipped: capture must still end with one outside photo, so open a skipped one.
+  const skipped = firstSkippedExterior(s);
+  if (skipped && !hasExteriorPhoto(s)) return { kind: 'angle', angleKey: skipped };
+  return afterExterior(s);
+}
+
+export function hasExteriorPhoto(s: CaptureProgressState): boolean {
+  return EXTERIOR_ANGLE_KEYS.some((k) => s.captured.has(k));
+}
+
+/** The first skipped exterior angle in walk order (to reopen when no outside photo exists). */
+export function firstSkippedExterior(s: CaptureProgressState): ExteriorAngleKey | null {
+  return EXTERIOR_ANGLE_KEYS.find((k) => s.skipped.has(k) && !s.captured.has(k)) ?? null;
 }
 
 /**

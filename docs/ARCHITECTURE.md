@@ -45,28 +45,31 @@ All Expo-managed versions come from `npx expo install` (the `bundledNativeModule
 - **Zip for "share all images"**: phone recipients (WhatsApp, mail) cannot preview a zip inline. Zip stays for backups and "export originals".
 - **react-native-view-shot for evidence images**: the output depends on screen density and on-screen layout. Skia offscreen renders deterministically at a fixed pixel size.
 - **pdf-lib / native PDF builders**: HTML/CSS through expo-print is far cheaper for a text-heavy report. Revisit only if exact pagination control becomes necessary.
-- **expo-document-picker**: expo-file-system 57 already provides file and directory pickers.
+- **Media-library access for imports**: ID documents, the vehicle photo and the logo come in through `expo-image-picker`'s system photo picker (Android Photo Picker / iOS PHPicker), which needs no media permission. Its iOS behaviour must be checked on a device in the iOS phase; if a permission prompt appears, add the plugin with a `photosPermission` string. `expo-document-picker` is used only to pick a `.carcheck` backup file.
 - **zustand / redux / react-query**: not needed (section 5).
 - **Flutter / native Kotlin**: would lose the single TypeScript codebase for Android and iOS.
 
 ## 4. Folder structure
 
 ```
-app/                 expo-router routes only. Screens compose src/ui and call hooks/services. No SQL, no file IO.
+app/                 expo-router routes only. Screens compose src/ui and src/features; no SQL.
 src/
-  domain/            Pure TS: entities, value types, rules (statuses, contract variable registry, freezing).
-                     No React, no Expo imports. Fully unit-testable in Node.
-  data/              SQLite connection, migrations, repositories, backup/restore orchestration.
-  media/             Files and pixels: app-private file store, camera wrapper, resize/thumbnails,
-                     geometry, Skia evidence composition.
-  export/            Leaving the app: PDF (expo-print HTML), share (single/multi), print, zip helpers.
-  ui/                Design system: theme tokens, primitives, shared components (Skia canvases, compare views).
+  domain/            Pure TS: entities, value types, rules (rental lifecycle, contract template and
+                     variable registry, damage labels). No React, no Expo imports. Unit-tested in Node.
+  data/              SQLite connection, migrations, repositories, file store, backup/restore.
+  media/             Pixels: camera wrapper, photo processing, geometry, marker editor, compare
+                     views, Skia evidence composition. May use src/ui tokens and primitives.
+  documents/         Leaving the app: HTML builders, PDF (expo-print), share (single/multi), print.
+  features/<area>/   Screen-level services and components shared by a few routes (inspection,
+                     damage, contract, evidence, report, entities, settings). They orchestrate
+                     data + media + documents (e.g. contract PDF generation, capture saving).
+  ui/                Design system: tokens, primitives, shared components.
   config.ts          App constants.
 plugins/             Local Expo config plugins (run at prebuild only).
 .github/workflows/   CI APK build.
 ```
 
-**Dependency direction:** `domain` ← `data`, `media` ← `export` ← `ui` / `app`. `domain` imports nothing else from the app. Only `src/data` touches expo-sqlite. Only `src/media` and `src/export` touch the file system, camera, Skia offscreen, print, share and zip. Tests live in `__tests__/` next to the code. The layering can be enforced later with ESLint `no-restricted-imports`.
+**Dependency direction:** `domain` ← `data` ← `features` ← `app`; `media` and `documents` sit beside `data` and are used by `features` and `app`; `ui` is used by everything that renders (including `media`). `domain` imports nothing else from the app. Only `src/data` touches expo-sqlite. File IO lives in `src/data` (the store), `src/media` (photos) and `src/documents` (exports); `src/features` may call them. Tests live in `__tests__/` next to the code. The layering is not lint-enforced yet (`no-restricted-imports` is the tool when it is).
 
 ## 5. State and data access
 
@@ -78,13 +81,13 @@ plugins/             Local Expo config plugins (run at prebuild only).
 
 ## 6. Storage, privacy, offline enforcement
 
-- All data lives under `Paths.document` (app-private, invisible to the gallery and media store). Temporary exports go under `Paths.cache/export/…`. They are deleted when the share sheet returns and swept on app start.
+- All data lives under `Paths.document` (app-private, invisible to the gallery and media store). Temporary exports go under `Paths.cache/exports/…` and are swept on app start (older than 24 h). Native-module caches (`Camera/`, `ImagePicker/`, `ImageManipulator/`) are swept after 1 h.
 - The DB stores **relative** paths only. Absolute sandbox paths change across iOS reinstalls, restores and backups.
 - `android.allowBackup: false` keeps customer IDs and signatures out of Google auto-backup. Android 12+ device-to-device transfer is still possible, since the owner starts it. In-app backup is the supported path.
-- **Permissions:** CAMERA (plus VIBRATE from the template). Blocked: RECORD_AUDIO, READ/WRITE_EXTERNAL_STORAGE, SYSTEM_ALERT_WINDOW. expo-camera's ML Kit barcode scanner is disabled, which removes a Play Services dependency that can download models.
-- **Release APK has no network:** `plugins/withReleaseOffline.js` writes `android/app/src/release/AndroidManifest.xml`, which removes INTERNET and ACCESS_NETWORK_STATE. Debug and dev-client builds keep INTERNET for Metro. The prebuild output was checked; check the merged manifest on the first CI APK (`aapt dump permissions`). If expo-print's WebView misbehaves on a device, drop the plugin line in `app.config.ts`.
-- **Sharing:** react-native-share's FileProvider exposes only `cache/` and `Download/`. Always copy files into `cache/export/` before sharing, and never share from `documents/`. expo-sharing's share-into-app plugin is deliberately not enabled.
-- `react-native-share` and `react-native-zip-archive` are not in Expo Go. Import them lazily inside `src/export` functions, so the rest of the app still runs in Expo Go.
+- **Permissions:** CAMERA (plus VIBRATE from the template, and DETECT_SCREEN_CAPTURE from expo-screen-capture). Blocked: RECORD_AUDIO, READ/WRITE_EXTERNAL_STORAGE, SYSTEM_ALERT_WINDOW, and READ_MEDIA_IMAGES (declared by expo-screen-capture for screenshot detection below Android 14, which CarCheck does not use). DETECT_SCREEN_CAPTURE must stay: on Android 14+ the module registers a screen-capture callback as soon as it loads, and without the permission the app crashes at launch (install-time permission, no prompt, no data access). CI fails if it is missing. expo-camera's ML Kit barcode scanner is disabled, which removes a Play Services dependency that can download models.
+- **Release APK has no network:** `plugins/withReleaseOffline.js` writes `android/app/src/release/AndroidManifest.xml`, which removes INTERNET and ACCESS_NETWORK_STATE. Debug and dev-client builds keep INTERNET for Metro. CI fails the build if the release APK requests INTERNET or ACCESS_NETWORK_STATE (`aapt dump permissions`). If expo-print's WebView misbehaves on a device, drop the plugin line in `app.config.ts`.
+- **Sharing:** react-native-share's FileProvider exposes only `cache/` and `Download/`. Always copy files into `cache/exports/` before sharing, and never share from `documents/`. expo-sharing's share-into-app plugin is deliberately not enabled.
+- `react-native-share` and `react-native-zip-archive` are not in Expo Go. Import them lazily inside `src/documents` / `src/data/backup` functions, so the rest of the app still runs in Expo Go.
 
 ## 7. Seams for camera, composition and PDF (details: IMAGE_PIPELINE.md)
 

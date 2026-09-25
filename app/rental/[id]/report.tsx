@@ -28,6 +28,7 @@ import {
 import {
   ActionFooter,
   Button,
+  ConfirmDialog,
   EmptyState,
   formatDate,
   IconButton,
@@ -170,6 +171,8 @@ function ReportReady({ data, onBack, onRegenerate }: { data: ReportData; onBack:
   const report = data.documents.report!;
   const [busy, setBusy] = useState<Busy>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [reopenAsk, setReopenAsk] = useState(false);
+  const [reopening, setReopening] = useState(false);
   const [viewing, setViewing] = useState<EvidenceImage | null>(null);
 
   const newCount = damages.filter((d) => d.status === 'new').length;
@@ -208,13 +211,23 @@ function ReportReady({ data, onBack, onRegenerate }: { data: ReportData; onBack:
       label: 'Edit return',
       detail: 'Reopens the return. Complete it again to update the report.',
       icon: PencilLine,
-      onPress: () =>
-        void reopenReturn(rental.id).then(
-          () => router.push(returnRoutes.compare(rental.id)),
-          (e: unknown) => showToast(e instanceof DataError ? e.message : "Couldn't reopen the return. Try again."),
-        ),
+      onPress: () => setReopenAsk(true),
     },
   ];
+
+  // The flow replaces the report: completing again opens a fresh report instead of stacking a second one.
+  const doReopen = async () => {
+    setReopening(true);
+    try {
+      await reopenReturn(rental.id);
+      setReopenAsk(false);
+      router.replace(returnRoutes.compare(rental.id));
+    } catch (e) {
+      showToast(e instanceof DataError ? e.message : "Couldn't reopen the return. Try again.");
+    } finally {
+      setReopening(false);
+    }
+  };
 
   return (
     <Screen
@@ -223,7 +236,20 @@ function ReportReady({ data, onBack, onRegenerate }: { data: ReportData; onBack:
       onLeadingPress={onBack}
       actions={<IconButton icon={EllipsisVertical} accessibilityLabel="More" onPress={() => setMenuOpen(true)} />}
       insets={{ bottom: false }}
-      overlay={<ActionSheet open={menuOpen} onClose={() => setMenuOpen(false)} actions={menu} accessibilityLabel="More" />}
+      overlay={
+        <>
+          <ActionSheet open={menuOpen} onClose={() => setMenuOpen(false)} actions={menu} accessibilityLabel="More" />
+          <ConfirmDialog
+            visible={reopenAsk}
+            title="Reopen this return?"
+            message="The report is rebuilt when you complete it again. Anything already shared stays as it was."
+            confirmLabel="Reopen"
+            busy={reopening}
+            onCancel={() => setReopenAsk(false)}
+            onConfirm={() => void doReopen()}
+          />
+        </>
+      }
       footer={
         <ActionFooter rule>
           <View style={styles.row}>

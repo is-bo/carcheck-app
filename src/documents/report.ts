@@ -17,7 +17,7 @@ import {
 import {
   captionList,
   closeupFigures,
-  contactSheet,
+  pairedContactSheet,
   damageCountsLine,
   damageTable,
   footerNote,
@@ -195,9 +195,10 @@ export function buildDamageReportHtml(input: DamageReportInput, options: Documen
       ? `<section class="section">${sectionTitle('Damage', `${damages.length} recorded`)}${damageTable(damages)}</section>`
       : `<section class="section">${sectionTitle('Damage')}<p class="muted">No damage recorded at pick-up or return.</p></section>`;
 
+  const angles = new Set([...input.pickupPhotos, ...input.returnPhotos].map((t) => `${t.angleKey}#${t.slot}`)).size;
   const sheet = (breakBefore: boolean, heading: string) =>
-    input.returnPhotos.length
-      ? `<section class="section${breakBefore ? ' page-break' : ''}">${sectionTitle(heading, `${input.returnPhotos.length} angles`)}${contactSheet(input.returnPhotos, 'After')}</section>`
+    angles
+      ? `<section class="section${breakBefore ? ' page-break' : ''}">${sectionTitle(heading, `${angles} angles`)}${pairedContactSheet(input.pickupPhotos, input.returnPhotos)}</section>`
       : '';
 
   const evidenceBlocks = evidence.map((e, i) => evidenceSection(e, i, evidence.length, damages, true)).join('');
@@ -219,7 +220,7 @@ export function buildDamageReportHtml(input: DamageReportInput, options: Documen
   const body = [
     ...cover,
     damageList,
-    clean ? sheet(false, 'Condition at return') : evidenceBlocks + sheet(true, 'All angles at return'),
+    clean ? sheet(false, 'Condition at pick-up and return') : evidenceBlocks + sheet(true, 'All angles, pick-up and return'),
     appendix,
     voidedNote,
     signaturesSection(input.contracts),

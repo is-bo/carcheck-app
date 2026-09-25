@@ -1,7 +1,6 @@
 import { Paths } from 'expo-file-system';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import { SkipForward } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -30,6 +29,7 @@ import {
   type CaptureTarget,
 } from '@/features/inspection/captureSequence';
 import { ensurePhotoDerivatives, photoFileUris } from '@/features/inspection/photoFiles';
+import { SkipControl, SkipSheet } from '@/features/inspection/SkipControls';
 import { useExitStartFlow, useResumePoint } from '@/features/inspection/StartFlowScreen';
 import { annotateHref, startHref } from '@/features/inspection/startFlow';
 import { useLiveQuery } from '@/features/inspection/useLiveQuery';
@@ -38,16 +38,13 @@ import {
   BottomSheet,
   Button,
   CarDiagram,
-  Chip,
   exteriorAngleLabels,
   formatFileSize,
-  Icon,
   showToast,
   SurfaceProvider,
   Text,
-  Touchable,
 } from '@/ui';
-import { layout, motion, palette, rebate, touch } from '@/ui/theme/tokens';
+import { layout, motion, palette } from '@/ui/theme/tokens';
 
 const LOW_STORAGE = 500e6;
 const FULL_STORAGE = 100e6;
@@ -58,11 +55,6 @@ const EXTRA_LABELS: Record<string, string> = {
   closeup: 'Close-up',
   other: 'Other',
 };
-const SKIP_REASONS: { value: SkipReason; label: string }[] = [
-  { value: 'blocked', label: 'Blocked' },
-  { value: 'too_dark', label: 'Too dark' },
-  { value: 'other', label: 'Other' },
-];
 
 function angleLabel(key: AngleKey): string {
   if (isExteriorAngle(key)) return exteriorAngleLabels[key];
@@ -125,6 +117,10 @@ export default function CaptureStep() {
 
   const conditionHref = startHref(id, 'condition');
   const finish = useCallback(() => router.dismissTo(conditionHref), [conditionHref]);
+  // Opened with nothing left to do (e.g. Resume after the last shot): never show an empty screen.
+  useEffect(() => {
+    if (target?.kind === 'finish') finish();
+  }, [target, finish]);
 
   const close = () => {
     if (single) {
@@ -284,12 +280,7 @@ export default function CaptureStep() {
           </>
         ) : null}
         {!extraKey ? (
-          <Touchable onPress={onSkipPress} accessibilityRole="button" accessibilityLabel={`Skip ${angleLabel(currentKey)}`} style={styles.skip}>
-            <Icon icon={SkipForward} size={20} color={rebate.text} />
-            <Text variant="bodyStrong" color={rebate.text}>
-              Skip
-            </Text>
-          </Touchable>
+          <SkipControl label={angleLabel(currentKey)} onPress={onSkipPress} />
         ) : null}
       </View>
     </SurfaceProvider>
@@ -332,27 +323,7 @@ export default function CaptureStep() {
         />
       ) : null}
 
-      <BottomSheet
-        open={skipping}
-        onClose={() => setSkipping(false)}
-        snapPoints={[236]}
-        accessibilityLabel="Skip this angle"
-        header={<Text variant="titleL">Skip {angleLabel(currentKey).toLowerCase()}?</Text>}
-      >
-        <View style={styles.sheetBody}>
-          <Text variant="bodySmall" tone="secondary">
-            Why? The report shows “Not photographed” with the reason.
-          </Text>
-          <View style={styles.reasons}>
-            {SKIP_REASONS.map((r) => (
-              <View key={r.value} style={styles.fill}>
-                <Chip label={r.label} selected={false} fill onPress={() => skip(r.value)} />
-              </View>
-            ))}
-          </View>
-          <Button label="Skip without a reason" variant="quiet" onPress={() => skip(null)} />
-        </View>
-      </BottomSheet>
+      <SkipSheet open={skipping} label={angleLabel(currentKey)} onSkip={skip} onClose={() => setSkipping(false)} />
 
       <BottomSheet
         open={picker}
@@ -399,16 +370,6 @@ function LastShotPreview({ shot, onKeep, onRetake }: { shot: LastShot; onKeep: (
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   accessory: { alignItems: 'center', gap: 4 },
-  skip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    minHeight: touch.min,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-  },
-  sheetBody: { paddingHorizontal: layout.screenGutter, gap: 12 },
-  reasons: { flexDirection: 'row', gap: 8 },
   picker: { alignItems: 'center', paddingTop: 8 },
   preview: { backgroundColor: palette.rebate },
   previewBar: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 12, backgroundColor: palette.rebate },

@@ -3,23 +3,22 @@
  * sheet, the angle picker and the last-shot preview (Retake / Keep).
  */
 import { Image } from 'expo-image';
-import { ArrowRight, SkipForward } from 'lucide-react-native';
-import { useState } from 'react';
+import { ArrowRight } from 'lucide-react-native';
 import { Modal, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type { PairKey, SkipReason } from '@/domain/types';
+import type { PairKey } from '@/domain/types';
 import {
   BottomSheet,
   Button,
   CarDiagram,
-  ChipGroup,
   ListRow,
   Surface,
   Text,
   type AngleState,
   type ExteriorAngleKey,
 } from '@/ui';
+import { SkipControl } from '@/features/inspection/SkipControls';
 import { layout, overlay, radii } from '@/ui/theme/tokens';
 
 import type { CaptureTarget } from '../returnPlan';
@@ -44,64 +43,32 @@ export interface CaptureRailProps {
   skipDisabled?: boolean;
 }
 
-/** Left rail (landscape) / bottom-left slot (portrait): the orbit opens the picker; Skip. */
+/**
+ * Left rail (landscape) / bottom-left slot (portrait), as at pick-up: the orbit opens the
+ * picker, "n of 8 done", Skip.
+ */
 export function CaptureRail({ targets, current, onOpenPicker, onSkip, skipDisabled }: CaptureRailProps) {
   const { width, height } = useWindowDimensions();
   const landscape = width > height;
   const currentExterior = current && isExterior(current) ? (current.angleKey as ExteriorAngleKey) : null;
+  const done = targets.filter((t) => isExterior(t) && t.state !== 'pending').length;
   return (
     <View style={styles.rail}>
-      <CarDiagram states={orbitStates(targets)} current={currentExterior} size={landscape ? 80 : 60} onPress={onOpenPicker} />
-      <Button label="Skip" variant="quiet" size="small" icon={SkipForward} onPress={onSkip} disabled={skipDisabled} />
+      <CarDiagram states={orbitStates(targets)} current={currentExterior} size={landscape ? 84 : 60} onPress={onOpenPicker} />
+      {currentExterior ? (
+        <Text variant="code" tone="secondary" tabular>
+          {done} of 8 done
+        </Text>
+      ) : null}
+      <SkipControl label={current?.label ?? 'this angle'} onPress={onSkip} disabled={skipDisabled} />
     </View>
   );
 }
 
 // ---------------------------------------------------------------------------------------------
 
-const SKIP_OPTIONS: readonly { value: SkipReason; label: string }[] = [
-  { value: 'blocked', label: 'Blocked' },
-  { value: 'too_dark', label: 'Too dark' },
-  { value: 'other', label: 'Other' },
-];
-
-export interface SkipSheetProps {
-  open: boolean;
-  label: string;
-  onSkip: (reason: SkipReason | null) => void;
-  onClose: () => void;
-}
-
-/** One row of reason chips plus a plain Skip (UX §3: the reason is optional, no dialog). */
-export function SkipSheet({ open, label, onSkip, onClose }: SkipSheetProps) {
-  const [reason, setReason] = useState<SkipReason | null>(null);
-  return (
-    <BottomSheet
-      open={open}
-      onClose={onClose}
-      snapPoints={[248]}
-      accessibilityLabel={`Skip ${label}`}
-      header={<Text variant="titleL">Skip {label.toLowerCase()}?</Text>}
-      footer={
-        <Button
-          label="Skip"
-          fullWidth
-          onPress={() => {
-            onSkip(reason);
-            setReason(null);
-          }}
-        />
-      }
-    >
-      <View style={styles.sheetBody}>
-        <Text variant="bodySmall" tone="secondary">
-          Reason (optional). It shows in the report.
-        </Text>
-        <ChipGroup accessibilityLabel="Why it was skipped" options={SKIP_OPTIONS} value={reason} onChange={setReason} columns={3} />
-      </View>
-    </BottomSheet>
-  );
-}
+// The same skip sheet as at pick-up (one tap on a reason skips).
+export { SkipSheet, type SkipSheetProps } from '@/features/inspection/SkipControls';
 
 // ---------------------------------------------------------------------------------------------
 
@@ -196,7 +163,6 @@ export function ShotPreview({ uri, label, onRetake, onClose }: ShotPreviewProps)
 
 const styles = StyleSheet.create({
   rail: { alignItems: 'center', gap: 4 },
-  sheetBody: { paddingHorizontal: layout.screenGutter, paddingTop: 8, gap: 12 },
   picker: { alignItems: 'center', paddingVertical: 8 },
   preview: { flex: 1 },
   previewPhoto: { flex: 1 },

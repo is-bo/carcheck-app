@@ -39,12 +39,19 @@ export default function RentalsScreen() {
   const [agencyConfigured, setAgencyConfigured] = useState(true);
   useEffect(() => {
     let alive = true;
-    isAgencyConfigured().then((v) => {
-      if (alive) {
-        setAgencyConfigured(v);
-        setAgencyChecked(true);
-      }
-    });
+    isAgencyConfigured().then(
+      (v) => {
+        if (alive) {
+          setAgencyConfigured(v);
+          setAgencyChecked(true);
+        }
+      },
+      (e: unknown) => {
+        // Never strand Home on a blank screen: assume configured, onboarding stays in Settings.
+        console.warn('[home] agency check failed', e);
+        if (alive) setAgencyChecked(true);
+      },
+    );
     return () => {
       alive = false;
     };
@@ -66,12 +73,22 @@ export default function RentalsScreen() {
     let alive = true;
     const timer = setTimeout(() => {
       setSearching(true);
-      searchRentals(q).then((rows) => {
-        if (alive) {
-          setSearchResults(rows);
-          setSearching(false);
-        }
-      });
+      searchRentals(q).then(
+        (rows) => {
+          if (alive) {
+            setSearchResults(rows);
+            setSearching(false);
+          }
+        },
+        (e: unknown) => {
+          console.warn('[home] search failed', e);
+          if (alive) {
+            setSearchResults([]);
+            setSearching(false);
+            showToast('Search didn’t work. Try again.');
+          }
+        },
+      );
     }, 150);
     return () => {
       alive = false;
@@ -83,10 +100,17 @@ export default function RentalsScreen() {
   const [returnedExpanding, setReturnedExpanding] = useState(false);
   const expandReturned = () => {
     setReturnedExpanding(true);
-    listRentals({ statuses: ['returned'], limit: 200 }).then((rows) => {
-      setReturnedExpanded(rows);
-      setReturnedExpanding(false);
-    });
+    listRentals({ statuses: ['returned'], limit: 200 }).then(
+      (rows) => {
+        setReturnedExpanded(rows);
+        setReturnedExpanding(false);
+      },
+      (e: unknown) => {
+        console.warn('[home] history failed', e);
+        setReturnedExpanding(false);
+        showToast('Couldn’t load the history. Try again.');
+      },
+    );
   };
 
   const [discardTarget, setDiscardTarget] = useState<RentalListItem | null>(null);
@@ -118,6 +142,22 @@ export default function RentalsScreen() {
   const rowSubtitle = (item: RentalListItem) =>
     item.rental.vehicle ? rentalSubtitle(item.rental) : (item.rental.customer.fullName ?? undefined);
 
+  /** Search rows say where each rental stands and offer the same inline action as its section. */
+  const searchStatus = (item: RentalListItem): { text: string; action: 'resume' | 'return' | null } => {
+    const { rental, derived } = item;
+    if (rental.status === 'draft' || derived.needsSignature || derived.returnInProgress) {
+      return { text: unfinishedMeta(item).text, action: 'resume' };
+    }
+    if (rental.status === 'active') {
+      return {
+        text: rental.expectedReturnAt !== null ? dueBackMeta(item, now).text : 'Out · no return date set',
+        action: 'return',
+      };
+    }
+    if (rental.status === 'returned') return { text: returnedStatusLine(item), action: null };
+    return { text: 'Cancelled', action: null };
+  };
+
   const searchActive = query.trim().length > 0;
   const sections = home.data;
   const allEmpty = !!sections && !sections.unfinished.length && !sections.dueBack.length && !sections.out.length && !sections.returned.length;
@@ -126,6 +166,7 @@ export default function RentalsScreen() {
     <Screen
       insets={{ top: false, bottom: false }}
       scroll
+      fabClearance
       overlay={
         <>
           <Fab icon={Plus} label="New rental" onPress={() => router.push(crossAgent.rentalNew)} />
@@ -185,15 +226,25 @@ export default function RentalsScreen() {
           <SkeletonRows count={3} />
         ) : searchResults && searchResults.length > 0 ? (
           <ListSection flush>
-            {searchResults.map((item) => (
-              <ListRow
-                key={item.rental.id}
-                title={rowTitle(item)}
-                subtitle={rowSubtitle(item)}
-                meta={item.rental.reference}
-                onPress={() => openRental(item.rental.id)}
-              />
-            ))}
+            {searchResults.map((item) => {
+              const status = searchStatus(item);
+              return (
+                <ListRow
+                  key={item.rental.id}
+                  title={rowTitle(item)}
+                  subtitle={[rowSubtitle(item), item.rental.reference].filter(Boolean).join(' · ')}
+                  meta={status.text}
+                  trailing={
+                    status.action === 'resume' ? (
+                      <Button label="Resume" variant="tonal" size="small" onPress={() => resume(item)} />
+                    ) : status.action === 'return' ? (
+                      <Button label="Return" variant="secondary" size="small" onPress={() => handleReturn(item.rental.id)} />
+                    ) : undefined
+                  }
+                  onPress={() => openRental(item.rental.id)}
+                />
+              );
+            })}
           </ListSection>
         ) : (
           <EmptyState icon={Search} title={`No matches for "${query.trim()}"`} body="Try a plate, name or reference number." />
@@ -204,7 +255,7 @@ export default function RentalsScreen() {
         <EmptyState
           icon={TriangleAlert}
           title="Couldn't load rentals"
-          body={home.error instanceof Error ? home.error.message : String(home.error)}
+          body="Your data is safe on this phone. Try again."
           action={<Button label="Try again" variant="secondary" onPress={home.reload} />}
         />
       ) : allEmpty ? (

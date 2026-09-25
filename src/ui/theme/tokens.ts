@@ -120,7 +120,8 @@ export const rebate: ColorRoles = {
   textSecondary: palette.onRebate2,
   textTertiary: palette.onRebate2,
   divider: palette.rebateRule,
-  outline: palette.rebateRule,
+  // Sunlight Rule: anything tappable on the dark screens keeps a >= 3:1 boundary (about 8:1).
+  outline: palette.onRebate2,
   ruleStrong: palette.onRebate,
 
   primary: palette.onRebate,
@@ -140,6 +141,8 @@ export const rebate: ColorRoles = {
 /** Labels and tags laid over photos (BEFORE / AFTER, capture title). */
 export const overlay = {
   tagBackground: 'rgba(12,13,14,0.78)',
+  /** Light veil over a hidden (blurred) sensitive photo, under its lock glyph. */
+  photoScrim: 'rgba(12,13,14,0.35)',
   tagText: palette.onRebate,
   tagTextSecondary: palette.onRebate2,
   guideStroke: palette.white,

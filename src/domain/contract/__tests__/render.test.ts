@@ -2,6 +2,7 @@ import { contractHtmlToBlocks } from '@/documents/contractBlocks';
 
 import {
   CONTRACT_VARIABLES,
+  contractHtmlProblems,
   contractHtmlReferences,
   inspectContractTemplate,
   isStarterTemplate,
@@ -85,10 +86,17 @@ describe('renderContractTemplate', () => {
 
     const blocks = contractHtmlToBlocks(html);
     expect(blocks[0]).toEqual({ type: 'heading', level: 1, spans: [{ text: 'Vehicle condition agreement' }] });
-    expect(blocks.filter((b) => b.type === 'image').map((b) => b.type === 'image' && b.source)).toEqual([
-      { kind: 'photo', photoId: 'sample-front-left', annotated: true },
-      { kind: 'photo', photoId: 'sample-right', annotated: true },
+    const photos = blocks.flatMap((b) => (b.type === 'image' && b.source.kind === 'photo' ? [b.source] : []));
+    expect(photos.map((p) => [p.photoId, p.annotated, p.size])).toEqual([
+      ['sample-front-left', true, { width: 4032, height: 3024 }],
+      ['sample-right', true, { width: 4032, height: 3024 }],
     ]);
+    // The rings come back from the frozen SVG (rounded to 0.1 px).
+    const [first] = photos[0].marks ?? [];
+    expect(first.label).toBe('A');
+    expect(first.ring.x).toBeCloseTo(0.32, 3);
+    expect(first.ring.y).toBeCloseTo(0.62, 3);
+    expect(first.ring.r).toBeCloseTo(0.06, 3);
     expect(blocks.some((b) => b.type === 'signature')).toBe(true);
   });
 });
@@ -109,5 +117,21 @@ describe('starter template and registry', () => {
     expect(variables['rental.start_mileage']).toBe('48 210 km');
     expect(variables['rental.fuel']).toBe('¾');
     expect(variables['damage.existing_count']).toBe('2');
+  });
+});
+
+describe('contractHtmlProblems', () => {
+  it('accepts everything the renderer writes, including the starter template', () => {
+    const { html } = renderContractTemplate(STARTER_TEMPLATE_BODY, ctx());
+    expect(contractHtmlProblems(html)).toEqual([]);
+    expect(contractHtmlProblems('<p>a = b, x="y" &lt;script&gt;</p><br/>')).toEqual([]);
+  });
+
+  it('flags scripts, frames, handlers, comments and outside references', () => {
+    expect(
+      contractHtmlProblems(
+        '<p onclick="x()">a</p><script>1</script><iframe src="https://x"></iframe><!-- c --><img src="http://e/x.png" alt="">',
+      ),
+    ).toEqual(['https://x', 'http://e/x.png', 'p[onclick]', '<script>', '<iframe>', 'markup <!--']);
   });
 });

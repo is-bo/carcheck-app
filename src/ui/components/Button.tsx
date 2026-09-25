@@ -118,6 +118,7 @@ export function Button({
         styles.base,
         {
           minHeight: height,
+          paddingVertical: size === 'customer' ? 8 : 0,
           paddingHorizontal: variant === 'quiet' ? 12 : size === 'small' ? 14 : 20,
           backgroundColor: look.bg,
           borderColor: look.border ?? 'transparent',
@@ -130,7 +131,9 @@ export function Button({
       <View style={styles.content}>
         {iconPosition === 'leading' ? glyph : null}
         <Text
-          numberOfLines={1}
+          // Customer type is never capped (large system font): wrap to two lines instead of "Confirm sig…".
+          numberOfLines={size === 'customer' ? 2 : 1}
+          style={size === 'customer' ? styles.customerLabel : undefined}
           variant={size === 'customer' ? 'customer.button' : size === 'small' ? 'button' : 'buttonLarge'}
           color={look.fg}
         >
@@ -151,4 +154,5 @@ const styles = StyleSheet.create({
   },
   fullWidth: { alignSelf: 'stretch' },
   content: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  customerLabel: { textAlign: 'center', flexShrink: 1 },
 });

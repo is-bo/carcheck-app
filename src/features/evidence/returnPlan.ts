@@ -112,10 +112,15 @@ export interface ReturnReadiness {
   /** Pairs with a return photo (what "angles compared" counts). */
   comparable: number;
   reviewed: number;
-  /** Photographed at return but never viewed in Compare. */
+  /** Outside angles photographed at return but never viewed in Compare. */
   unreviewed: AnglePair[];
   /** Exterior angles neither photographed nor skipped at return. */
   missing: AnglePair[];
+  /**
+   * Return photos retaken while they had marks, not yet confirmed in Compare (review M2). A
+   * warning, not a blocker: Complete return asks first, the employee may still go ahead.
+   */
+  marksToCheck: AnglePair[];
   newCount: number;
   uncertainCount: number;
   hasExteriorPhoto: boolean;
@@ -133,7 +138,8 @@ export function returnReadiness(pairs: readonly AnglePair[]): ReturnReadiness {
     const status = compareStatus(p);
     if (p.after) comparable += 1;
     if (status === 'reviewed') reviewed += 1;
-    else if (status === 'unreviewed') unreviewed.push(p);
+    // Optional shots (dashboard, extras) never hold up completion: only outside angles must be viewed.
+    else if (status === 'unreviewed' && isExterior(p)) unreviewed.push(p);
     else if (status === 'missing') missing.push(p);
   }
   const hasExteriorPhoto = hasExteriorReturnPhoto(pairs);
@@ -142,6 +148,7 @@ export function returnReadiness(pairs: readonly AnglePair[]): ReturnReadiness {
     reviewed,
     unreviewed,
     missing,
+    marksToCheck: seq.filter((p) => p.after?.marksCheckNeeded === true),
     newCount: pairs.reduce((n, p) => n + p.newDamageCount, 0),
     uncertainCount: pairs.reduce((n, p) => n + p.uncertainDamageCount, 0),
     hasExteriorPhoto,

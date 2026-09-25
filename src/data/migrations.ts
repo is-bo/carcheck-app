@@ -583,8 +583,92 @@ INSERT INTO angle (key, label, angle_group, sort_order, built_in) VALUES
   ('other',       'Other',       'extra',     240, 1);
 `;
 
+// ---------------------------------------------------------------------------------------------
+// Migration 2: signature and vehicle rules found in review (docs/reviews/architecture-data.md H1, H2, M1)
+
+/** The rental has a signed contract that is not voided (frozen with migration 2). */
+const activeContractV2 = (rentalId: string) =>
+  `EXISTS (SELECT 1 FROM signed_contract sc WHERE sc.rental_id = ${rentalId}` +
+  ` AND NOT EXISTS (SELECT 1 FROM contract_void cv WHERE cv.contract_id = sc.id))`;
+
+/** damageInconsistent (v1) plus: the close-up's phase equals the mark's found_phase. */
+const damageInconsistentV2 = `(${damageInconsistent}
+  OR (NEW.closeup_photo_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM photo p WHERE p.id = NEW.closeup_photo_id
+      AND p.phase = NEW.found_phase)))`;
+
+const V2_TRIGGERS = `
+-- A return can only be completed on a rental with a valid (not voided) signed contract.
+DROP TRIGGER trg_rental_status_transition;
+CREATE TRIGGER trg_rental_status_transition BEFORE UPDATE OF status ON rental
+WHEN NEW.status IS NOT OLD.status AND (
+     NOT ((OLD.status = 'draft' AND NEW.status = 'active')
+       OR (OLD.status = 'active' AND NEW.status IN ('returned', 'cancelled')))
+  OR (NEW.status IN ('active', 'returned') AND NOT ${activeContractV2('NEW.id')}))
+BEGIN ${raise(INVALID, 'illegal rental status change')} END;
+
+-- Once the return inspection has started, the pick-up contract can no longer be voided.
+DROP TRIGGER trg_void_insert_rules;
+CREATE TRIGGER trg_void_insert_rules BEFORE INSERT ON contract_void
+WHEN NOT EXISTS (SELECT 1 FROM signed_contract sc JOIN rental r ON r.id = sc.rental_id
+                 WHERE sc.id = NEW.contract_id AND r.status = 'active')
+  OR EXISTS (SELECT 1 FROM signed_contract sc JOIN inspection i ON i.rental_id = sc.rental_id
+             WHERE sc.id = NEW.contract_id AND i.phase = 'after')
+BEGIN ${raise(LOCKED, 'only contracts of an active rental whose return has not started can be voided')} END;
+
+-- The vehicle is fixed once anything was signed or frozen: a car swap is cancel + new rental.
+DROP TRIGGER trg_rental_vehicle_change;
+CREATE TRIGGER trg_rental_vehicle_change BEFORE UPDATE OF vehicle_id ON rental
+WHEN NEW.vehicle_id IS NOT OLD.vehicle_id AND (
+     EXISTS (SELECT 1 FROM damage WHERE rental_id = OLD.id)
+  OR EXISTS (SELECT 1 FROM signed_contract WHERE rental_id = OLD.id)
+  OR EXISTS (SELECT 1 FROM photo WHERE rental_id = OLD.id AND frozen_at IS NOT NULL))
+BEGIN ${raise(INVALID, 'the vehicle of a signed rental cannot change; cancel it and start a new rental')} END;
+
+-- A close-up must come from the same inspection (phase) as its mark.
+DROP TRIGGER trg_damage_insert_consistency;
+CREATE TRIGGER trg_damage_insert_consistency BEFORE INSERT ON damage WHEN ${damageInconsistentV2}
+BEGIN ${raise(INVALID, 'damage must reference photos of the same rental, angle and phase')} END;
+DROP TRIGGER trg_damage_update_consistency;
+CREATE TRIGGER trg_damage_update_consistency BEFORE UPDATE ON damage WHEN ${damageInconsistentV2}
+BEGIN ${raise(INVALID, 'damage must reference photos of the same rental, angle and phase')} END;
+
+-- "Repaired / gone" chosen in a draft only counts while that draft keeps the vehicle.
+CREATE TRIGGER trg_rental_vehicle_unresolve AFTER UPDATE OF vehicle_id ON rental
+WHEN NEW.vehicle_id IS NOT OLD.vehicle_id
+BEGIN
+  UPDATE vehicle_damage SET resolved_at = NULL, resolution = NULL, resolution_note = NULL, resolved_rental_id = NULL,
+    updated_at = NEW.updated_at
+    WHERE resolved_rental_id = NEW.id AND vehicle_id IS OLD.vehicle_id;
+END;
+CREATE TRIGGER trg_rental_delete_unresolve BEFORE DELETE ON rental
+BEGIN
+  UPDATE vehicle_damage SET resolved_at = NULL, resolution = NULL, resolution_note = NULL, resolved_rental_id = NULL,
+    updated_at = ${NOW_MS}
+    WHERE resolved_rental_id = OLD.id;
+END;
+
+-- Repair rows left by the old behaviour. "not_found" is only set from a rental's pick-up; with no
+-- rental left it came from a discarded draft. A resolution whose rental now has another vehicle
+-- came from a draft that switched cars.
+UPDATE vehicle_damage SET resolved_at = NULL, resolution = NULL, resolution_note = NULL, resolved_rental_id = NULL,
+    updated_at = ${NOW_MS}
+  WHERE (resolution = 'not_found' AND resolved_rental_id IS NULL)
+     OR (resolved_rental_id IS NOT NULL AND vehicle_id IS NOT (SELECT vehicle_id FROM rental WHERE id = resolved_rental_id));
+`;
+
+// ---------------------------------------------------------------------------------------------
+// v3: "check the marks" after a return retake (architecture review M2). A retake carries the
+// marks over to a differently framed photo; the new photo is flagged until the employee confirms
+// in Compare that every mark still sits on the damage. Frozen photos keep whatever they had.
+
+const V3_MARKS_CHECK = `
+ALTER TABLE photo ADD COLUMN marks_check_needed INTEGER NOT NULL DEFAULT 0 CHECK (marks_check_needed IN (0, 1));
+`;
+
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: 'initial schema', sql: V1_TABLES + V1_INDEXES + V1_VIEWS + V1_TRIGGERS + V1_SEED },
+  { version: 2, name: 'signature and vehicle rules', sql: V2_TRIGGERS },
+  { version: 3, name: 'marks check after a return retake', sql: V3_MARKS_CHECK },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;

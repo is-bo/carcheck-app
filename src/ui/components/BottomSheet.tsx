@@ -41,6 +41,11 @@ export interface BottomSheetProps {
   children?: ReactNode;
   /** Tap outside closes. Default true. */
   dismissOnBackdrop?: boolean;
+  /**
+   * 'none': no scrim, and touches above the sheet reach the screen (the damage sheet keeps
+   * its ring visible and draggable). Default 'scrim'.
+   */
+  backdrop?: 'scrim' | 'none';
   /** Names the sheet for screen readers ("Damage 3"). */
   accessibilityLabel: string;
 }
@@ -62,6 +67,7 @@ export function BottomSheet({
   footer,
   children,
   dismissOnBackdrop = true,
+  backdrop = 'scrim',
   accessibilityLabel,
 }: BottomSheetProps) {
   const insets = useSafeAreaInsets();
@@ -177,18 +183,20 @@ export function BottomSheet({
 
   return (
     <View ref={containerRef} style={StyleSheet.absoluteFill} onLayout={onContainerLayout} pointerEvents="box-none">
-      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: light.scrim }, backdropStyle]}>
-        <Pressable
-          style={StyleSheet.absoluteFill}
-          onPress={dismissOnBackdrop ? onClose : undefined}
-          accessibilityRole="button"
-          accessibilityLabel="Close"
-          importantForAccessibility={dismissOnBackdrop ? 'yes' : 'no'}
-        />
-      </Animated.View>
+      {backdrop === 'scrim' ? (
+        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: light.scrim }, backdropStyle]}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={dismissOnBackdrop ? onClose : undefined}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            importantForAccessibility={dismissOnBackdrop ? 'yes' : 'no'}
+          />
+        </Animated.View>
+      ) : null}
       <SurfaceProvider tone="paper">
         <Animated.View
-          accessibilityViewIsModal
+          accessibilityViewIsModal={backdrop === 'scrim'}
           accessibilityLabel={accessibilityLabel}
           onAccessibilityEscape={onClose}
           style={[

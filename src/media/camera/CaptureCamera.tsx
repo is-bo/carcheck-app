@@ -32,6 +32,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useFollowPhoneRotation } from '@/ui/followRotation';
 import {
   fontScaleCap,
   icon,
@@ -169,6 +170,9 @@ const MESSAGE_MS = 3500;
 export function CaptureCamera(props: CaptureCameraProps) {
   const texts = useMemo(() => ({ ...DEFAULT_CAPTURE_TEXTS, ...props.texts }), [props.texts]);
   const [permission, requestPermission, getPermission] = useCameraPermissions();
+  // Portrait or sideways, whichever way the phone is held, even with auto-rotate off: the frame,
+  // the guide and the controls re-lay out (computeCaptureLayout) and the camera stays mounted.
+  useFollowPhoneRotation();
 
   // Coming back from system Settings must pick up a newly granted permission.
   useEffect(() => {

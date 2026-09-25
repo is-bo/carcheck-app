@@ -56,8 +56,22 @@ export function makeSkiaFont(typeface: SkTypeface, size: number): SkFont {
   font.setEdging(FontEdging.AntiAlias);
   font.setHinting(FontHinting.None);
   font.setLinearMetrics(true);
-  font.setSubpixel(true);
+  enableSubpixel(font);
   return font;
+}
+
+/**
+ * RN Skia 2.6's native setSubpixel reads its argument as a number although the type says boolean:
+ * `setSubpixel(true)` throws "Value is true, expected a number" on the device, which took down
+ * every marker badge and evidence caption. Pass 1 there, and keep working if a later version
+ * reads a boolean as typed.
+ */
+function enableSubpixel(font: SkFont): void {
+  try {
+    font.setSubpixel(1 as unknown as boolean);
+  } catch {
+    font.setSubpixel(true);
+  }
 }
 
 /** Advance width of `text` (what layout needs; SkFont.measureText returns ink bounds). */

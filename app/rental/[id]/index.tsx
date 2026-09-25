@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, type ComponentProps } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Redirect, router, useLocalSearchParams, type Href } from 'expo-router';
-import { Ban, RotateCcw, TriangleAlert } from 'lucide-react-native';
+import { Ban, PencilLine, RotateCcw, TriangleAlert } from 'lucide-react-native';
 
-import { resolveFileUri } from '@/data/files';
 import { cancelRental, getRentalDetail, listInspectionAngles, reopenReturn, startReturn, type DataEntity } from '@/data/repos';
 import { damageLabel, damageTypeLabel, DAMAGE_SEVERITY_LABELS } from '@/domain/damage';
+import type { Photo, RentalDetail } from '@/domain/types';
 import { shareContractPdf } from '@/features/contract/contractPdf';
+import { usePhotoUri } from '@/features/inspection/photoFiles';
 import {
   crossAgent,
   fuelLabel,
@@ -38,6 +39,20 @@ import {
 import { layout } from '@/ui/theme/tokens';
 
 const WATCH: readonly DataEntity[] = ['rental', 'inspection', 'photo', 'damage', 'contract', 'artifact'];
+
+/** The flow a rental in this state belongs to, or null when the detail is its home. */
+function flowEntry(id: string, detail: RentalDetail): Href | null {
+  const { rental, derived } = detail.item;
+  if (derived.returnInProgress) return crossAgent.returnEntry(id);
+  if (rental.status === 'draft' || derived.needsSignature) return crossAgent.startEntry(id);
+  return null;
+}
+
+/** Grid tile on the small thumbnail, never the 12 MP original. */
+function AngleTile({ photo, ...props }: Omit<ComponentProps<typeof PhotoTile>, 'source'> & { photo: Photo | null }) {
+  const uri = usePhotoUri(photo, 'thumb');
+  return <PhotoTile {...props} source={uri ?? undefined} />;
+}
 const SKIP_REASON_LABEL: Record<string, string> = { blocked: 'Blocked', too_dark: 'Too dark', other: 'Other' };
 
 export default function RentalDetailScreen() {
@@ -50,6 +65,15 @@ export default function RentalDetailScreen() {
   const [cancelling, setCancelling] = useState(false);
   const [startingReturn, setStartingReturn] = useState(false);
   const [sharingContract, setSharingContract] = useState(false);
+  const [reopenOpen, setReopenOpen] = useState(false);
+  const [reopening, setReopening] = useState(false);
+
+  // Drafts, re-signs and returns in progress open in their flow (UX_FLOWS §1: "Draft -> redirects
+  // to its current step"), but only on arrival. Once this screen has shown the rental, leaving a
+  // flow with ✕ must land here instead of bouncing straight back into the flow.
+  const flowHref = detail ? flowEntry(id, detail) : null;
+  const [settled, setSettled] = useState(false);
+  if (detail && !flowHref && !settled) setSettled(true);
 
   if (query.loading && !detail) {
     return (
@@ -64,7 +88,7 @@ export default function RentalDetailScreen() {
         <EmptyState
           icon={TriangleAlert}
           title="Couldn't load this rental"
-          body={query.error instanceof Error ? query.error.message : 'It may have been discarded.'}
+          body="Your data is safe on this phone. Try again."
           action={<Button label="Try again" variant="secondary" onPress={query.reload} />}
         />
       </Screen>
@@ -74,10 +98,7 @@ export default function RentalDetailScreen() {
   const { item } = detail;
   const { rental, derived } = item;
 
-  // Drafts, re-signs and returns in progress belong to their flow, not this screen (UX_FLOWS §1:
-  // "Draft -> redirects to its current step"). The start/return agents own the actual resume logic.
-  if (derived.returnInProgress) return <Redirect href={crossAgent.returnEntry(id)} />;
-  if (rental.status === 'draft' || derived.needsSignature) return <Redirect href={crossAgent.startEntry(id)} />;
+  if (flowHref && !settled) return <Redirect href={flowHref} />;
 
   async function handleStartReturn() {
     setStartingReturn(true);
@@ -92,11 +113,15 @@ export default function RentalDetailScreen() {
   }
 
   async function handleEditReturn() {
+    setReopening(true);
     try {
       await reopenReturn(id);
+      setReopenOpen(false);
       router.push(crossAgent.returnEntry(id));
     } catch (e) {
       showToast(e instanceof Error ? e.message : "Couldn't reopen the return.");
+    } finally {
+      setReopening(false);
     }
   }
 
@@ -128,15 +153,31 @@ export default function RentalDetailScreen() {
   const latestContract = detail.contracts[detail.contracts.length - 1] ?? null;
   const shownContract = validContract ?? latestContract;
 
+  // Mirrors canVoidContract: not once the return has started.
+  const canFix = rental.status === 'active' && item.hasValidContract && detail.after === null;
   const overflow: OverflowAction[] =
     rental.status === 'active'
       ? [
-          { label: 'Fix contract (void & re-sign)', icon: RotateCcw, onPress: () => router.push(crossAgent.voidContract(id)) },
+          ...(canFix
+            ? [{ label: 'Fix contract (void & re-sign)', icon: RotateCcw, onPress: () => router.push(crossAgent.voidContract(id)) }]
+            : []),
           { label: 'Cancel rental', icon: Ban, destructive: true, onPress: () => setCancelOpen(true) },
         ]
-      : rental.status === 'returned'
-        ? [{ label: 'Edit return', icon: RotateCcw, onPress: handleEditReturn }]
+      : rental.status === 'returned' && !derived.returnInProgress
+        ? [{ label: 'Edit return', icon: PencilLine, onPress: () => setReopenOpen(true) }]
         : [];
+
+  // Shown once the employee left a flow with ✕: the way back in.
+  const primary = flowHref
+    ? {
+        label: derived.returnInProgress ? 'Continue return' : derived.needsSignature ? 'Continue to signing' : 'Resume',
+        onPress: () => router.push(flowHref),
+      }
+    : rental.status === 'active'
+      ? { label: 'Start return', onPress: handleStartReturn }
+      : rental.status === 'returned'
+        ? { label: 'Open report', onPress: () => router.push(crossAgent.report(id)) }
+        : null;
 
   const subtitle =
     rental.status === 'active'
@@ -160,26 +201,33 @@ export default function RentalDetailScreen() {
       scroll
       actions={overflow.length > 0 ? <OverflowButton actions={overflow} accessibilityLabel="Rental actions" /> : undefined}
       footer={
-        rental.status === 'active' ? (
+        primary ? (
           <ActionFooter>
-            <Button label="Start return" onPress={handleStartReturn} loading={startingReturn} fullWidth />
-          </ActionFooter>
-        ) : rental.status === 'returned' ? (
-          <ActionFooter>
-            <Button label="Open report" onPress={() => router.push(crossAgent.report(id))} fullWidth />
+            <Button label={primary.label} onPress={primary.onPress} loading={startingReturn} fullWidth />
           </ActionFooter>
         ) : undefined
       }
       overlay={
-        <ConfirmDialog
-          visible={cancelOpen}
-          title="Cancel this rental?"
-          message="For when the car never left. It stays in history as Cancelled."
-          confirmLabel="Cancel rental"
-          busy={cancelling}
-          onCancel={() => setCancelOpen(false)}
-          onConfirm={handleCancel}
-        />
+        <>
+          <ConfirmDialog
+            visible={cancelOpen}
+            title="Cancel this rental?"
+            message="For when the car never left. It stays in history as Cancelled."
+            confirmLabel="Cancel rental"
+            busy={cancelling}
+            onCancel={() => setCancelOpen(false)}
+            onConfirm={handleCancel}
+          />
+          <ConfirmDialog
+            visible={reopenOpen}
+            title="Reopen this return?"
+            message="The report is rebuilt when you complete it again. Anything already shared stays as it was."
+            confirmLabel="Reopen"
+            busy={reopening}
+            onCancel={() => setReopenOpen(false)}
+            onConfirm={handleEditReturn}
+          />
+        </>
       }
     >
       <View style={styles.hero}>
@@ -230,10 +278,10 @@ export default function RentalDetailScreen() {
               const marks = damageMarksFor(a.angleKey, a.slot);
               return (
                 <View key={`${a.angleKey}-${a.slot}`} style={styles.cell}>
-                  <PhotoTile
+                  <AngleTile
                     label={a.label}
+                    photo={a.photo}
                     state={a.photo ? 'captured' : a.state?.skippedAt ? 'skipped' : 'empty'}
-                    source={a.photo ? resolveFileUri(a.photo.file.path) : undefined}
                     marks={marks}
                     skipReason={a.state?.skipReason ? SKIP_REASON_LABEL[a.state.skipReason] : undefined}
                     onPress={a.photo ? () => router.push(crossAgent.annotate(id, a.photo!.id)) : undefined}

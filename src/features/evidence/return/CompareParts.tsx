@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: radii.md,
     borderWidth: lines.control,
-    borderColor: rebate.divider,
+    borderColor: rebate.outline,
   },
   toggleOn: { backgroundColor: rebate.surfacePressed, borderColor: rebate.surfacePressed },
   rowsHeader: { paddingHorizontal: layout.screenGutter, paddingTop: 14, paddingBottom: 2 },

@@ -231,6 +231,7 @@ export function GhostSlider({
   );
 }
 
+const TRACK_COLOR = `${rebate.outline}99`; // 60 %: a visible track, quieter than the fill
 const TRACK = 4;
 
 const styles = StyleSheet.create({
@@ -307,7 +308,7 @@ const styles = StyleSheet.create({
     left: (touch.sliderHandle - TRACK) / 2,
     width: TRACK,
     borderRadius: TRACK / 2,
-    backgroundColor: rebate.divider,
+    backgroundColor: TRACK_COLOR,
     justifyContent: 'flex-end',
     overflow: 'hidden',
   },
@@ -316,7 +317,7 @@ const styles = StyleSheet.create({
     top: (touch.sliderHandle - TRACK) / 2,
     height: TRACK,
     borderRadius: TRACK / 2,
-    backgroundColor: rebate.divider,
+    backgroundColor: TRACK_COLOR,
     overflow: 'hidden',
   },
   fillV: {

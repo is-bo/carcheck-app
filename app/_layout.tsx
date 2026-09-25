@@ -9,8 +9,8 @@ import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import { DatabaseZap } from 'lucide-react-native';
 
-import { initializeData } from '@/data/db';
-import { Button, Icon, screenPresets, Surface, Text, ToastHost, type ScreenPreset } from '@/ui';
+import { getBootReport, initializeData, type BootReport } from '@/data/db';
+import { Button, Icon, screenPresets, showToast, Surface, Text, ToastHost, type ScreenPreset } from '@/ui';
 import { fontAssets } from '@/ui/fonts';
 import { layout, light } from '@/ui/theme/tokens';
 
@@ -62,6 +62,15 @@ export default function RootLayout() {
   );
 }
 
+/** What boot had to do on its own that the employee should know about (DATA_MODEL §7.4). */
+function bootNote(report: BootReport | null): string | null {
+  if (!report) return null;
+  if (report.restore === 'rolled_back') return 'The last restore didn’t finish. Your data from before it is back.';
+  if (report.restore === 'completed') return 'The restore finished while CarCheck was closed. Your restored data is open.';
+  if (report.adoptedRoot) return 'CarCheck recovered its data after a storage problem. Check your latest rentals.';
+  return null;
+}
+
 type GateState = { status: 'pending' } | { status: 'ready' } | { status: 'failed'; error: unknown; retrying: boolean };
 
 /**
@@ -75,7 +84,13 @@ function DataGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     let alive = true;
     initializeData().then(
-      () => alive && setState({ status: 'ready' }),
+      () => {
+        if (!alive) return;
+        setState({ status: 'ready' });
+        const note = bootNote(getBootReport());
+        // After the first screen (and its toast host) has mounted.
+        if (note) setTimeout(() => showToast(note, { duration: 8000 }), 800);
+      },
       (error: unknown) => alive && setState({ status: 'failed', error, retrying: false }),
     );
     return () => {

@@ -174,7 +174,7 @@ async function resolvedContracts(rentalId: Id): Promise<ResolvedContract[]> {
 
 function countJobs(pairs: readonly AnglePair[], damages: readonly Damage[], evidence: readonly EvidenceImage[]): number {
   const closeups = damages.filter((d) => d.closeupPhotoId).length;
-  const thumbs = compareSequence(pairs).filter((p) => p.after).length;
+  const thumbs = compareSequence(pairs).reduce((n, p) => n + (p.after ? 1 : 0) + (p.before ? 1 : 0), 0);
   return closeups + evidence.length + thumbs;
 }
 
@@ -204,6 +204,7 @@ export async function buildReport(
   const agency = await docAgency(agencySettings);
   const docDamage = await docDamages(damages, pairs, tick);
   const docEvidenceImages = await docEvidence(evidence, tick);
+  const pickupPhotos = await docPhotoThumbs(pairs, 'before', tick);
   const returnPhotos = await docPhotoThumbs(pairs, 'after', tick);
   const contracts = await resolvedContracts(rentalId);
 
@@ -214,6 +215,7 @@ export async function buildReport(
     damages: docDamage,
     evidence: docEvidenceImages,
     returnPhotos,
+    pickupPhotos,
     contracts,
     generatedAt: Date.now(),
     tzOffsetMin: deviceOffset(),

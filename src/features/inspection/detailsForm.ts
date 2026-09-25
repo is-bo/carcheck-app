@@ -57,6 +57,20 @@ export function shiftDays(at: EpochMs, delta: number): EpochMs {
   return d.getTime();
 }
 
+/** Common hand-back times in the "Pick…" sheet, so a time is one tap instead of many steps. */
+export const RETURN_TIMES = [
+  { label: '09:00', hour: 9 },
+  { label: '12:00', hour: 12 },
+  { label: '18:00', hour: 18 },
+] as const;
+
+/** Same calendar day, at `hour`:00 local time. */
+export function atHour(at: EpochMs, hour: number): EpochMs {
+  const d = new Date(at);
+  d.setHours(hour, 0, 0, 0);
+  return d.getTime();
+}
+
 /** Time stepper: moves by `stepMin` minutes and snaps to the step grid. */
 export function shiftTime(at: EpochMs, deltaSteps: number, stepMin = 15): EpochMs {
   const d = new Date(at);

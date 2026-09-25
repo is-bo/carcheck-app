@@ -35,6 +35,7 @@ export default function VehiclesScreen() {
     <Screen
       insets={{ top: false, bottom: false }}
       scroll
+      fabClearance
       overlay={<Fab icon={Plus} label="New vehicle" onPress={() => router.push('/vehicle/new' as Href)} />}
     >
       <View style={styles.toolbar}>
@@ -50,7 +51,7 @@ export default function VehiclesScreen() {
         <EmptyState
           icon={TriangleAlert}
           title="Couldn't load vehicles"
-          body={list.error instanceof Error ? list.error.message : String(list.error)}
+          body="Your data is safe on this phone. Try again."
           action={<Button label="Try again" variant="secondary" onPress={list.reload} />}
         />
       ) : isEmpty ? (

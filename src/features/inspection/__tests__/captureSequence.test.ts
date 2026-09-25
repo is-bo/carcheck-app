@@ -30,6 +30,12 @@ describe('captureSequence', () => {
     expect(initialTarget(state(), 'dashboard')).toEqual({ kind: 'dashboard' });
   });
 
+  it('reopens the first skipped angle when every angle was skipped (one outside photo is required)', () => {
+    expect(initialTarget(state([], ALL))).toEqual({ kind: 'angle', angleKey: 'front' });
+    expect(initialTarget(state(['dashboard'], ['front', ...ALL.slice(1)]))).toEqual({ kind: 'angle', angleKey: 'front' });
+    expect(initialTarget(state(['rear'], ALL.filter((k) => k !== 'rear')))).toEqual({ kind: 'dashboard' });
+  });
+
   it('goes to the dashboard once every exterior angle is done, then finishes', () => {
     expect(initialTarget(state(ALL))).toEqual({ kind: 'dashboard' });
     expect(initialTarget(state(ALL, ['dashboard']))).toEqual({ kind: 'finish' });

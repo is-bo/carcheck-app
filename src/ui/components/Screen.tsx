@@ -6,7 +6,7 @@ import { useNavigation } from 'expo-router';
 import { ArrowLeft, X } from 'lucide-react-native';
 
 import { colorsFor, Surface, useSurface, type SurfaceTone } from '../surface';
-import { layout } from '../theme/tokens';
+import { layout, touch } from '../theme/tokens';
 import { IconButton } from './IconButton';
 import { Text } from './Text';
 
@@ -120,6 +120,8 @@ export interface ScreenProps {
   insets?: { top?: boolean; bottom?: boolean };
   /** Constrain content to a 600 dp column (default on paper). */
   column?: boolean;
+  /** A Fab floats over the content: keep the last row's trailing action clear of it. */
+  fabClearance?: boolean;
   contentStyle?: StyleProp<ViewStyle>;
   testID?: string;
 }
@@ -142,6 +144,7 @@ export function Screen({
   overlay,
   insets: edges,
   column,
+  fabClearance = false,
   contentStyle,
   testID,
 }: ScreenProps) {
@@ -158,7 +161,7 @@ export function Screen({
     ) : null;
 
   const columnStyle = useColumn ? styles.column : null;
-  const bottomPad = !footer && padBottom ? insets.bottom : 0;
+  const bottomPad = (!footer && padBottom ? insets.bottom : 0) + (fabClearance ? FAB_CLEARANCE : 0);
 
   return (
     <Surface tone={tone} style={styles.fill} testID={testID}>
@@ -182,6 +185,8 @@ export function Screen({
     </Surface>
   );
 }
+
+const FAB_CLEARANCE = touch.fabHeight + layout.bottomActionInset * 2;
 
 /** Colours of a tone without a context (navigation options, native backgrounds). */
 export const screenBackground = (tone: SurfaceTone) => colorsFor(tone).background;

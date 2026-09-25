@@ -69,7 +69,7 @@ function parseMileage(text: string): number | null {
   return digits ? Number(digits) : null;
 }
 
-type Guard = { kind: 'missing' | 'unreviewed' | 'no_photo'; readiness: ReturnReadiness } | null;
+type Guard = { kind: 'missing' | 'unreviewed' | 'no_photo' | 'marks'; readiness: ReturnReadiness } | null;
 
 function DetailsForm({ rental, pairs, onLeave }: { rental: Rental; pairs: AnglePair[]; onLeave: () => void }) {
   const rentalId = rental.id;
@@ -145,6 +145,7 @@ function DetailsForm({ rental, pairs, onLeave }: { rental: Rental; pairs: AngleP
     if (!r.hasExteriorPhoto) setGuard({ kind: 'no_photo', readiness: r });
     else if (r.missing.length > 0) setGuard({ kind: 'missing', readiness: r });
     else if (r.unreviewed.length > 0) setGuard({ kind: 'unreviewed', readiness: r });
+    else if (r.marksToCheck.length > 0) setGuard({ kind: 'marks', readiness: r });
     else void complete();
   }, [complete, pairs, setGuard]);
 
@@ -162,13 +163,18 @@ function DetailsForm({ rental, pairs, onLeave }: { rental: Rental; pairs: AngleP
       } else if (guard.kind === 'unreviewed') {
         for (const p of r.unreviewed) await markPairReviewed(rentalId, p);
       }
+      // Retaken photos with unchecked marks warn last; "Complete anyway" is the employee's call.
+      if (guard.kind !== 'marks' && r.marksToCheck.length > 0) {
+        setGuard({ kind: 'marks', readiness: { ...r, missing: [], unreviewed: [] } });
+        return;
+      }
       await complete();
     } catch (e) {
       showToast(e instanceof DataError ? e.message : "Couldn't update the angles. Try again.");
     }
   }, [complete, guard, guardOpen, rentalId, setGuard]);
 
-  const summaryOk = readiness.canComplete;
+  const summaryOk = readiness.canComplete && readiness.marksToCheck.length === 0;
   const guardCopy = guard ? guardText(guard) : null;
 
   return (
@@ -202,10 +208,12 @@ function DetailsForm({ rental, pairs, onLeave }: { rental: Rental; pairs: AngleP
                     onPress={() => {
                       const r = guard.readiness;
                       setGuard(null);
-                      const target = guard.kind === 'unreviewed' ? r.unreviewed[0] : r.missing[0];
-                      router.push(
-                        guard.kind === 'unreviewed' ? returnRoutes.compare(rentalId, target) : returnRoutes.capture(rentalId, target ?? null),
-                      );
+                      if (guard.kind === 'marks' || guard.kind === 'unreviewed') {
+                        const target = guard.kind === 'marks' ? r.marksToCheck[0] : r.unreviewed[0];
+                        router.push(returnRoutes.compare(rentalId, target));
+                      } else {
+                        router.push(returnRoutes.capture(rentalId, r.missing[0] ?? null));
+                      }
                     }}
                   />
                   {guardCopy?.secondary ? (
@@ -239,8 +247,14 @@ function DetailsForm({ rental, pairs, onLeave }: { rental: Rental; pairs: AngleP
                 schedule();
               }}
               onBlur={() => void persist().catch(() => undefined)}
-              hint={rental.startMileage !== null ? `Start: ${formatMileage(rental.startMileage, unit)}` : undefined}
-              error={belowStart ? `Lower than the start mileage (${formatMileage(rental.startMileage, unit)}).` : null}
+              // Lower than the start is unusual but never blocks: a hint, not an error.
+              hint={
+                belowStart
+                  ? `Lower than the start (${formatMileage(rental.startMileage, unit)}). Check the odometer.`
+                  : rental.startMileage !== null
+                    ? `Start: ${formatMileage(rental.startMileage, unit)}`
+                    : undefined
+              }
               returnKeyType="done"
             />
           </View>
@@ -292,10 +306,8 @@ function DetailsForm({ rental, pairs, onLeave }: { rental: Rental; pairs: AngleP
             summaryOk
               ? undefined
               : () => {
-                  const target = readiness.missing[0] ?? readiness.unreviewed[0];
-                  router.push(
-                    readiness.missing.length > 0 ? returnRoutes.capture(rentalId, target) : returnRoutes.compare(rentalId, target),
-                  );
+                  if (readiness.missing.length > 0) router.push(returnRoutes.capture(rentalId, readiness.missing[0]));
+                  else router.push(returnRoutes.compare(rentalId, readiness.unreviewed[0] ?? readiness.marksToCheck[0]));
                 }
           }
           disabled={summaryOk}
@@ -312,7 +324,9 @@ function DetailsForm({ rental, pairs, onLeave }: { rental: Rental; pairs: AngleP
               <Text variant="bodySmall" tone="accent">
                 {readiness.missing.length > 0
                   ? `${readiness.missing.length} not photographed · Take photos`
-                  : `${readiness.unreviewed.length} not compared · Compare now`}
+                  : readiness.unreviewed.length > 0
+                    ? `${readiness.unreviewed.length} not compared · Compare now`
+                    : `Marks to check on ${listLabels(readiness.marksToCheck)} · Check now`}
               </Text>
             ) : null}
           </View>
@@ -345,6 +359,15 @@ function guardText(guard: NonNullable<Guard>): { title: string; body: string; pr
         primary: 'Compare now',
         secondary: 'They look the same',
       };
+    case 'marks': {
+      const one = r.marksToCheck.length === 1;
+      return {
+        title: one ? `Check the marks on ${r.marksToCheck[0].label}` : `Check the marks on ${r.marksToCheck.length} angles`,
+        body: `${listLabels(r.marksToCheck)} ${one ? 'was' : 'were'} photographed again after you marked damage. The marks moved to the new ${one ? 'photo' : 'photos'} as they were: check each one still sits on the damage.`,
+        primary: 'Check marks',
+        secondary: 'Complete anyway',
+      };
+    }
   }
 }
 

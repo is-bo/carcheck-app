@@ -37,11 +37,13 @@ import {
   writeDataPointer,
   type DataRootLocation,
 } from './files';
+import { isOrphanSweepSafe } from './filePaths';
 import { CONNECTION_PRAGMAS, DB_FILE_NAME, getSchemaVersion, migrate, SCHEMA_VERSION } from './migrations';
 import {
   abandonedRoots,
   chooseRootWithoutPointer,
   dataRootName,
+  fallbackPointer,
   isSafetyCopyExpired,
   newPointer,
   pointerForRollback,
@@ -141,15 +143,25 @@ function newRootName(): string {
   return dataRootName(Crypto.randomUUID().replace(/-/g, '').slice(0, 12));
 }
 
+function rootCandidates() {
+  return listDataRootNames().map((name) => ({ name, dbModifiedAt: dbFileModifiedAt(name, DB_FILE_NAME) }));
+}
+
 async function resolveRoot(report: BootReport): Promise<DataPointer> {
   let pointer = recoverDataPointer();
+  // A guessed root is never grounds for deleting the others (see fallbackPointer).
+  let guessed = false;
   if (!pointer) {
-    const adopt = chooseRootWithoutPointer(
-      listDataRootNames().map((name) => ({ name, dbModifiedAt: dbFileModifiedAt(name, DB_FILE_NAME) })),
-    );
-    if (adopt) report.adoptedRoot = true;
-    else report.createdRoot = true;
-    pointer = newPointer(adopt ?? newRootName());
+    const candidates = rootCandidates();
+    const adopt = chooseRootWithoutPointer(candidates);
+    if (adopt) {
+      report.adoptedRoot = true;
+      guessed = true;
+      pointer = fallbackPointer(adopt, candidates, Date.now());
+    } else {
+      report.createdRoot = true;
+      pointer = newPointer(newRootName());
+    }
     createDataRoot(pointer.root);
     writeDataPointer(pointer);
   }
@@ -165,15 +177,25 @@ async function resolveRoot(report: BootReport): Promise<DataPointer> {
       pointer = back;
       report.restore = 'rolled_back';
     } else {
-      // Nothing to fall back to: start empty rather than refuse to open.
-      pointer = newPointer(pointer.root);
-      report.createdRoot = !dataRootExists(pointer.root);
+      // Nothing to fall back to: adopt the most recent other root if there is one, else start
+      // empty rather than refuse to open.
+      const failed = pointer.root;
+      const candidates = rootCandidates().filter((c) => c.name !== failed);
+      const adopt = chooseRootWithoutPointer(candidates);
+      if (adopt) {
+        report.adoptedRoot = true;
+        guessed = true;
+        pointer = fallbackPointer(adopt, candidates, Date.now());
+      } else {
+        pointer = newPointer(pointer.root);
+        report.createdRoot = !dataRootExists(pointer.root);
+      }
     }
     createDataRoot(pointer.root);
     writeDataPointer(pointer);
   }
 
-  for (const name of abandonedRoots(listDataRootNames(), pointer)) {
+  for (const name of guessed ? [] : abandonedRoots(listDataRootNames(), pointer)) {
     try {
       deleteDataRoot(name);
       report.abandonedRootsDeleted += 1;
@@ -273,21 +295,31 @@ export function snapshotLiveDatabase(targetPath: string): Promise<void> {
 export interface HousekeepingReport {
   tempDeleted: number;
   orphansDeleted: number;
+  /** Orphans were found but not deleted because the DB looks empty or replaced (see isOrphanSweepSafe). */
+  orphanSweepSkipped: boolean;
   /** Referenced by the DB but absent on disk: reported, never auto-deleted. */
   missingFiles: RelPath[];
   derivedDeleted: number;
   safetyCopyExpired: boolean;
 }
 
-/** Deletes unreferenced files older than 1 h under the files root and stale photo caches. */
-export async function sweepOrphans(): Promise<{ deleted: number; missing: RelPath[]; derivedDeleted: number }> {
+/**
+ * Deletes unreferenced files older than 1 h under the files root and stale photo caches.
+ * Refuses to delete anything when the DB no longer seems to describe the files root.
+ */
+export async function sweepOrphans(): Promise<{ deleted: number; skipped: boolean; missing: RelPath[]; derivedDeleted: number }> {
   const db = getDb();
   const refs = await listFileRefs(db);
-  const { orphans, missing } = findOrphanFiles(refs.map((r) => r.path));
-  const deleted = deleteStoredFiles(orphans.map((o) => o.path));
+  const diff = findOrphanFiles(refs.map((r) => r.path));
+  const safe = isOrphanSweepSafe(diff, diff.storedCount, refs.length);
+  if (!safe) {
+    console.warn('[data] orphan sweep skipped:', diff.orphans.length, 'unreferenced of', diff.storedCount, 'stored files');
+    return { deleted: 0, skipped: true, missing: diff.missing, derivedDeleted: 0 };
+  }
+  const deleted = deleteStoredFiles(diff.orphans.map((o) => o.path));
   const photoIds = await db.getAllAsync<{ id: string }>('SELECT id FROM photo');
   const derivedDeleted = sweepDerivedCaches(new Set(photoIds.map((p) => p.id)));
-  return { deleted, missing, derivedDeleted };
+  return { deleted, skipped: false, missing: diff.missing, derivedDeleted };
 }
 
 export async function runHousekeeping(): Promise<HousekeepingReport> {
@@ -305,6 +337,7 @@ export async function runHousekeeping(): Promise<HousekeepingReport> {
   return {
     tempDeleted,
     orphansDeleted: sweep.deleted,
+    orphanSweepSkipped: sweep.skipped,
     missingFiles: sweep.missing,
     derivedDeleted: sweep.derivedDeleted,
     safetyCopyExpired,

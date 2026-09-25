@@ -31,6 +31,7 @@ import {
   isMeaningfulSignature,
   MIN_POINT_DISTANCE,
   planSignatureExport,
+  refitStrokes,
   serializeStrokes,
   shouldAppendPoint,
   SIGNATURE_STROKE_WIDTH,
@@ -96,6 +97,12 @@ export interface SignaturePadProps {
 }
 
 const BASELINE_FROM_BOTTOM = 76;
+
+/** Where the signing line sits in a pad of this height (dp from the top). */
+function baselineFor(height: number): number {
+  'worklet';
+  return Math.max(height * 0.55, height - BASELINE_FROM_BOTTOM);
+}
 const INSET = 24;
 const EMPTY_STATE: SignaturePadState = { isEmpty: true, isValid: false, strokeCount: 0 };
 
@@ -218,14 +225,30 @@ export function SignaturePad({
   const onLayout = useCallback(
     (e: LayoutChangeEvent) => {
       const { width, height } = e.nativeEvent.layout;
+      const prev = sizeRef.current;
       sizeRef.current = { width, height };
       padSize.set({ width, height });
       setSize({ width, height });
+      if (prev.width === 0 || (prev.width === width && prev.height === height)) return;
+      // The phone turned (or the layout changed): carry the ink over, undistorted (refitStrokes).
+      const from = { ...prev, baseline: baselineFor(prev.height) };
+      const to = { width, height, baseline: baselineFor(height) };
+      const margin = strokeWidth / 2 + 4;
+      scheduleOnUI(() => {
+        'worklet';
+        const done = strokes.get();
+        const live = current.get();
+        if (done.length === 0 && live.length === 0) return;
+        const moved = refitStrokes(live.length > 0 ? [...done, live] : done, from, to, margin);
+        if (live.length > 0) current.set(moved.pop() ?? []);
+        strokes.set(moved);
+        scheduleOnRN(sync, moved);
+      });
     },
-    [padSize],
+    [current, padSize, strokeWidth, strokes, sync],
   );
 
-  const baselineY = Math.max(size.height * 0.55, size.height - BASELINE_FROM_BOTTOM);
+  const baselineY = baselineFor(size.height);
 
   return (
     <GestureDetector gesture={pan}>

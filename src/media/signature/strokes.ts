@@ -166,3 +166,53 @@ export function serializeStrokes(strokes: readonly SignatureStroke[], pad: Size,
     strokes: strokes.map((s) => s.map((p) => [r1(p.x), r1(p.y), Math.round(p.t - t0)])),
   });
 }
+
+/** A pad's size and where its signing line sits (dp from the top). */
+export interface PadGeometry {
+  width: number;
+  height: number;
+  baseline: number;
+}
+
+/**
+ * The phone turned and the pad changed size: moves the ink onto the new pad without distorting
+ * it. The signature keeps its shape exactly (a translation, plus one uniform shrink only when it no
+ * longer fits inside `margin`), its horizontal place in proportion, and its height above the
+ * signing line. What the customer sees after the turn is exactly what gets exported.
+ */
+export function refitStrokes(
+  strokes: readonly SignatureStroke[],
+  from: PadGeometry,
+  to: PadGeometry,
+  margin: number,
+): SignatureStroke[] {
+  'worklet';
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (let i = 0; i < strokes.length; i++) {
+    const s = strokes[i];
+    for (let j = 0; j < s.length; j++) {
+      const p = s[j];
+      if (p.x < minX) minX = p.x;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.y > maxY) maxY = p.y;
+    }
+  }
+  if (minX === Infinity || from.width <= 0 || to.width <= 0) return strokes.map((s) => s.slice());
+  const inkW = maxX - minX;
+  const inkH = maxY - minY;
+  const availW = Math.max(1, to.width - 2 * margin);
+  const availH = Math.max(1, to.height - 2 * margin);
+  const scale = Math.min(1, inkW > 0 ? availW / inkW : 1, inkH > 0 ? availH / inkH : 1);
+  const fromCx = (minX + maxX) / 2;
+  const fromCy = (minY + maxY) / 2;
+  const halfW = (inkW * scale) / 2;
+  const halfH = (inkH * scale) / 2;
+  const clampTo = (v: number, lo: number, hi: number) => (lo > hi ? (lo + hi) / 2 : v < lo ? lo : v > hi ? hi : v);
+  const cx = clampTo((fromCx / from.width) * to.width, margin + halfW, to.width - margin - halfW);
+  const cy = clampTo(to.baseline + (fromCy - from.baseline) * scale, margin + halfH, to.height - margin - halfH);
+  return strokes.map((s) => s.map((p) => ({ x: cx + (p.x - fromCx) * scale, y: cy + (p.y - fromCy) * scale, t: p.t })));
+}

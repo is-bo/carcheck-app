@@ -2,9 +2,14 @@
 import {
   addDamage,
   addPhoto,
+  completeReturn,
   ConflictError,
+  confirmMarksChecked,
   createDraftRental,
+  deleteDamage,
   deletePhoto,
+  getPhoto,
+  ImmutableError,
   getAnglePairs,
   getRentalFacts,
   listDamage,
@@ -55,10 +60,42 @@ describe('photos', () => {
     expect(moved.id).toBe(mark.id);
     expect(moved.beforePhotoId).toBe(retaken.id);
     expect(moved.marker.ring).toEqual({ x: 0.4, y: 0.4, r: 0.06 });
+    // Pick-up retakes prompt in the start flow instead; only return photos carry the flag.
+    expect(retaken.marksCheckNeeded).toBe(false);
     expect(t.files.stored.has(before.left.file.path)).toBe(false);
     expect(t.files.stored.get(retaken.file.path)).toBe('retaken');
     expect(t.files.droppedDerivatives).toContain(before.left.id);
     expect((await listPhotos(rentalId, { phase: 'before' })).length).toBe(8);
+  });
+
+  it('flags a retaken return photo with marks until the employee confirms them (review M2)', async () => {
+    const { rentalId, after } = await returnInProgress(t);
+    await addDamage({ photoId: after.front.id, marker: ring(0.3, 0.3), status: 'new' });
+    const unmarked = await retakePhoto(after.rear.id, t.image('rear again'));
+    expect(unmarked.marksCheckNeeded).toBe(false);
+    const retaken = await retakePhoto(after.front.id, t.image('front again'));
+    expect(retaken.marksCheckNeeded).toBe(true);
+    expect((await getAnglePairs(rentalId)).find((p) => p.angleKey === 'front')?.after?.marksCheckNeeded).toBe(true);
+    // A second retake keeps asking; confirming clears it.
+    const again = await retakePhoto(retaken.id, t.image('front third'));
+    expect(again.marksCheckNeeded).toBe(true);
+    await confirmMarksChecked(again.id);
+    expect((await getPhoto(again.id)).marksCheckNeeded).toBe(false);
+  });
+
+  it('ends the marks check when the marks are gone, and freezes with the return', async () => {
+    const { rentalId, after } = await returnInProgress(t);
+    const mark = await addDamage({ photoId: after.left.id, marker: ring(), status: 'new' });
+    const retaken = await retakePhoto(after.left.id, t.image('left again'));
+    expect(retaken.marksCheckNeeded).toBe(true);
+    await deleteDamage(mark.id);
+    expect((await getPhoto(retaken.id)).marksCheckNeeded).toBe(false);
+
+    await addDamage({ photoId: retaken.id, marker: ring(), status: 'new' });
+    const flagged = await retakePhoto(retaken.id, t.image('left once more'));
+    await completeReturn(rentalId, {});
+    // Completing anyway is allowed (a warning, not a lock); afterwards the photo is evidence.
+    await expect(confirmMarksChecked(flagged.id)).rejects.toBeInstanceOf(ImmutableError);
   });
 
   it('deleting a photo removes its marks and renumbers the rest', async () => {
