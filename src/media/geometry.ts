@@ -185,9 +185,11 @@ export function viewportToNorm(q: Point, image: Size, viewport: Size, view: View
  * Clamp zoom to [1, maxZoom]; on each axis keep the photo covering the viewport when it is
  * larger than the viewport, and centre it when it is smaller.
  */
-export function clampViewState(view: ViewState, image: Size, viewport: Size, maxZoom: number = MAX_ZOOM): ViewState {
+export function clampViewState(view: ViewState, image: Size, viewport: Size, maxZoom?: number): ViewState {
   'worklet';
-  const zoom = clamp(view.zoom, 1, maxZoom);
+  // Defaults are resolved here, never as `maxZoom = MAX_ZOOM` in the signature: on the UI thread
+  // a worklet's parameter defaults run before its captured constants exist (see workletDefaults test).
+  const zoom = clamp(view.zoom, 1, maxZoom ?? MAX_ZOOM);
   const s = Math.min(viewport.width / image.width, viewport.height / image.height) * zoom;
   const w = image.width * s;
   const h = image.height * s;
@@ -210,10 +212,10 @@ export function placeAnchor(
   at: Point,
   image: Size,
   viewport: Size,
-  maxZoom: number = MAX_ZOOM,
+  maxZoom?: number,
 ): ViewState {
   'worklet';
-  const z = clamp(zoom, 1, maxZoom);
+  const z = clamp(zoom, 1, maxZoom ?? MAX_ZOOM);
   const s = Math.min(viewport.width / image.width, viewport.height / image.height) * z;
   const cx = anchor.x - (at.x - viewport.width / 2) / (image.width * s);
   const cy = anchor.y - (at.y - viewport.height / 2) / (image.height * s);
@@ -238,7 +240,7 @@ export function pinchFrom(
   focal: Point,
   image: Size,
   viewport: Size,
-  maxZoom: number = MAX_ZOOM,
+  maxZoom?: number,
 ): ViewState {
   'worklet';
   const anchor = viewportToNorm(startFocal, image, viewport, start);
