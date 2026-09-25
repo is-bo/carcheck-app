@@ -43,10 +43,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'android.permission.READ_EXTERNAL_STORAGE',
       'android.permission.WRITE_EXTERNAL_STORAGE',
       'android.permission.SYSTEM_ALERT_WINDOW',
-      // expo-screen-capture declares these for screenshot *detection*; CarCheck only blocks
-      // screenshots (FLAG_SECURE), which needs no permission.
+      // expo-screen-capture declares this for screenshot detection below Android 14, which
+      // CarCheck does not use; the module checks it before use, so blocking it is safe.
       'android.permission.READ_MEDIA_IMAGES',
-      'android.permission.DETECT_SCREEN_CAPTURE',
+      // NOT blocked: android.permission.DETECT_SCREEN_CAPTURE. On Android 14+ expo-screen-capture
+      // registers a screen-capture callback as soon as the module loads, and without this
+      // (install-time, no-prompt) permission Android throws and the app dies at startup.
     ],
     adaptiveIcon: {
       backgroundColor: '#E6F4FE',

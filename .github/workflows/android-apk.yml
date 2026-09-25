@@ -120,8 +120,13 @@ jobs:
             echo "::error::Release APK requests INTERNET or ACCESS_NETWORK_STATE - the app must be 100% offline at runtime (see plugins/withReleaseOffline.js)."
             exit 1
           fi
-          if echo "$perms" | grep -qE 'android\.permission\.(RECORD_AUDIO|READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|READ_MEDIA_IMAGES|DETECT_SCREEN_CAPTURE|SYSTEM_ALERT_WINDOW)'; then
+          if echo "$perms" | grep -qE 'android\.permission\.(RECORD_AUDIO|READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|READ_MEDIA_IMAGES|SYSTEM_ALERT_WINDOW)'; then
             echo "::error::Release APK requests a permission blocked in app.config.ts (android.blockedPermissions)."
+            exit 1
+          fi
+          # expo-screen-capture needs it on Android 14+ or the app crashes at launch (app.config.ts).
+          if ! echo "$perms" | grep -q 'android.permission.DETECT_SCREEN_CAPTURE'; then
+            echo "::error::Release APK lacks DETECT_SCREEN_CAPTURE - expo-screen-capture crashes at startup on Android 14+ without it."
             exit 1
           fi
 
