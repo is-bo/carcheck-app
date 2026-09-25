@@ -3,6 +3,7 @@ import {
   inkMetrics,
   isMeaningfulSignature,
   planSignatureExport,
+  refitStrokes,
   serializeStrokes,
   shouldAppendPoint,
   SIGNATURE_EXPORT,
@@ -152,5 +153,66 @@ describe('serializeStrokes', () => {
         [[5, 5, 500]],
       ],
     });
+  });
+});
+
+describe('refitStrokes (pad resized when the phone turns)', () => {
+  const portrait = { width: 340, height: 480, baseline: 404 };
+  const landscape = { width: 560, height: 260, baseline: 184 };
+  const flat = (strokes: SignatureStroke[]) => strokes.flat();
+  // Pairwise distance ratios survive only a translation + uniform scale (no distortion).
+  const ratio = (a: SignatureStroke[], b: SignatureStroke[]) => {
+    const pa = flat(a);
+    const pb = flat(b);
+    const d = (p: { x: number; y: number }, q: { x: number; y: number }) => Math.hypot(p.x - q.x, p.y - q.y);
+    return d(pb[0], pb[pb.length - 1]) / d(pa[0], pa[pa.length - 1]);
+  };
+
+  it('keeps a signature that fits at exactly its size and shape, same height above the line', () => {
+    const ink = signature().map((s) => s.map((p) => ({ ...p, y: p.y + 260 })));
+    const out = refitStrokes(ink, portrait, landscape, 8);
+    expect(ratio(ink, out)).toBeCloseTo(1, 6);
+    const dx = out[0][0].x - ink[0][0].x;
+    const dy = out[0][0].y - ink[0][0].y;
+    flat(out).forEach((p, i) => {
+      expect(p.x - flat(ink)[i].x).toBeCloseTo(dx, 6);
+      expect(p.y - flat(ink)[i].y).toBeCloseTo(dy, 6);
+      expect(p.t).toBe(flat(ink)[i].t);
+    });
+    // Same distance to the signing line as before the turn.
+    const bottom = (ss: SignatureStroke[]) => Math.max(...flat(ss).map((p) => p.y));
+    expect(landscape.baseline - bottom(out)).toBeCloseTo(portrait.baseline - bottom(ink), 6);
+  });
+
+  it('shrinks ink that no longer fits, uniformly, and keeps it inside the pad', () => {
+    const tall = [stroke([20, 40], [300, 420], [40, 400])];
+    const out = refitStrokes(tall, portrait, landscape, 8);
+    const pts = flat(out);
+    pts.forEach((p) => {
+      expect(p.x).toBeGreaterThanOrEqual(8 - 1e-9);
+      expect(p.x).toBeLessThanOrEqual(landscape.width - 8 + 1e-9);
+      expect(p.y).toBeGreaterThanOrEqual(8 - 1e-9);
+      expect(p.y).toBeLessThanOrEqual(landscape.height - 8 + 1e-9);
+    });
+    const r = ratio(tall, out);
+    expect(r).toBeLessThan(1);
+    // Every segment scales by the same factor: no stretching in one direction.
+    const seg = (ss: SignatureStroke[], i: number) => Math.hypot(ss[0][i + 1].x - ss[0][i].x, ss[0][i + 1].y - ss[0][i].y);
+    expect(seg(out, 0) / seg(tall, 0)).toBeCloseTo(seg(out, 1) / seg(tall, 1), 6);
+  });
+
+  it('round-trips portrait -> landscape -> portrait without drift for ink that fits', () => {
+    const ink = signature().map((s) => s.map((p) => ({ ...p, y: p.y + 260 })));
+    const back = refitStrokes(refitStrokes(ink, portrait, landscape, 8), landscape, portrait, 8);
+    flat(back).forEach((p, i) => {
+      expect(p.x).toBeCloseTo(flat(ink)[i].x, 6);
+      expect(p.y).toBeCloseTo(flat(ink)[i].y, 6);
+    });
+  });
+
+  it('leaves an empty pad empty and copies unchanged geometry', () => {
+    expect(refitStrokes([], portrait, landscape, 8)).toEqual([]);
+    const ink = signature();
+    expect(refitStrokes(ink, portrait, portrait, 8)).toEqual(ink);
   });
 });
